@@ -1,0 +1,1950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ESP32 + Cavli C16QS — Developer Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+/* ─── THEME ─────────────────────────────────── */
+:root {
+  --bg:       #07090f;
+  --surface:  #0d1117;
+  --card:     #111827;
+  --border:   #1e2a3a;
+  --accent:   #00d4ff;
+  --accent2:  #00ff9d;
+  --warn:     #ffa940;
+  --danger:   #ff5c7a;
+  --text:     #d0e4f0;
+  --muted:    #5c7a96;
+  --sidebar-w: 280px;
+  --header-h:  60px;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+  --display: 'Syne', sans-serif;
+}
+[data-theme="light"] {
+  --bg:      #f0f4f8;
+  --surface: #ffffff;
+  --card:    #f7fafc;
+  --border:  #d0dce8;
+  --text:    #1a2535;
+  --muted:   #7a92a8;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 15px; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.7; min-height: 100vh; }
+
+/* ─── HEADER ───────────────────────────────── */
+#header {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
+  background: rgba(7,9,15,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px;
+  z-index: 200; gap: 14px;
+}
+#header .logo { font-family: var(--display); font-weight:800; font-size:1.05rem; color: var(--accent); letter-spacing:0.5px; }
+#header .logo span { color: var(--accent2); }
+#hamburger { display:none; background:none; border:1px solid var(--border); color: var(--text); padding:5px 9px; border-radius:6px; cursor:pointer; font-size:1rem; }
+#theme-toggle { margin-left:auto; background:none; border:1px solid var(--border); color: var(--accent); padding:5px 12px; border-radius:20px; cursor:pointer; font-family: var(--mono); font-size:.75rem; transition: all .2s; }
+#theme-toggle:hover { background: var(--accent); color: var(--bg); }
+#search-box { flex:1; max-width:280px; position:relative; }
+#search-box input { width:100%; background: var(--card); border:1px solid var(--border); color: var(--text); padding:6px 12px 6px 32px; border-radius:20px; font-family: var(--mono); font-size:.8rem; outline:none; transition: border-color .2s; }
+#search-box input:focus { border-color: var(--accent); }
+#search-box .ico { position:absolute; left:10px; top:50%; transform:translateY(-50%); color: var(--muted); font-size:.85rem; }
+#search-results { position:absolute; top:110%; left:0; right:0; background: var(--card); border:1px solid var(--border); border-radius:10px; max-height:260px; overflow-y:auto; z-index:300; display:none; }
+#search-results a { display:block; padding:8px 14px; color: var(--text); text-decoration:none; font-size:.82rem; border-bottom:1px solid var(--border); }
+#search-results a:hover { background: var(--border); color: var(--accent); }
+#search-results a:last-child { border-bottom:none; }
+
+/* ─── LAYOUT ───────────────────────────────── */
+#layout { display:flex; padding-top: var(--header-h); }
+
+/* ─── SIDEBAR ──────────────────────────────── */
+#sidebar {
+  position:fixed; top: var(--header-h); left:0; bottom:0;
+  width: var(--sidebar-w); background: var(--surface);
+  border-right:1px solid var(--border); overflow-y:auto;
+  padding: 20px 0 40px; transition: transform .3s; z-index:100;
+  scrollbar-width:thin; scrollbar-color: var(--border) transparent;
+}
+#sidebar::-webkit-scrollbar { width:4px; }
+#sidebar::-webkit-scrollbar-track { background:transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius:4px; }
+.nav-section { padding: 8px 16px 2px; font-family: var(--mono); font-size:.65rem; font-weight:700; color: var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin-top:14px; }
+.nav-link { display:block; padding:7px 20px; font-size:.82rem; color: var(--muted); text-decoration:none; transition: all .15s; border-left:2px solid transparent; line-height:1.3; }
+.nav-link:hover { color: var(--text); background: rgba(255,255,255,.03); border-left-color: var(--border); }
+.nav-link.active { color: var(--accent); background: rgba(0,212,255,.06); border-left-color: var(--accent); }
+.nav-link .badge { display:inline-block; background: var(--accent); color: var(--bg); font-size:.6rem; padding:1px 5px; border-radius:8px; margin-left:6px; font-weight:700; font-family: var(--mono); }
+
+/* ─── MAIN ──────────────────────────────────── */
+#main { margin-left: var(--sidebar-w); flex:1; padding: 40px 48px 80px; max-width: 960px; }
+
+/* ─── HEADINGS ─────────────────────────────── */
+h1 { font-family: var(--display); font-weight:800; font-size:2.4rem; color: var(--accent); margin-bottom:8px; line-height:1.2; }
+h2 { font-family: var(--display); font-weight:700; font-size:1.6rem; color: var(--text); margin:52px 0 16px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+h3 { font-family: var(--display); font-weight:600; font-size:1.15rem; color: var(--accent2); margin:30px 0 10px; }
+h4 { font-family: var(--mono); font-size:.95rem; color: var(--warn); margin:20px 0 8px; }
+p { margin-bottom:14px; line-height:1.75; }
+a { color: var(--accent); }
+
+/* ─── HERO ──────────────────────────────────── */
+.hero {
+  margin-bottom:48px; padding:40px; border-radius:18px;
+  background: linear-gradient(135deg, rgba(0,212,255,.08) 0%, rgba(0,255,157,.04) 100%);
+  border:1px solid rgba(0,212,255,.18); position:relative; overflow:hidden;
+}
+.hero::before {
+  content:''; position:absolute; top:-60px; right:-60px;
+  width:220px; height:220px; border-radius:50%;
+  background: radial-gradient(circle, rgba(0,212,255,.12), transparent 70%);
+}
+.hero .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+.chip { padding:4px 12px; border-radius:20px; font-family: var(--mono); font-size:.72rem; border:1px solid; }
+.chip-blue { border-color:rgba(0,212,255,.4); color: var(--accent); background:rgba(0,212,255,.08); }
+.chip-green { border-color:rgba(0,255,157,.4); color: var(--accent2); background:rgba(0,255,157,.08); }
+.chip-orange { border-color:rgba(255,169,64,.4); color: var(--warn); background:rgba(255,169,64,.08); }
+
+/* ─── SECTION ANCHOR SCROLLING ─────────────── */
+section { scroll-margin-top: 80px; }
+
+/* ─── CODE BLOCKS ──────────────────────────── */
+.code-wrap { position:relative; margin:18px 0; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+.code-header { display:flex; align-items:center; background:#0d1117; padding:8px 14px; border-bottom:1px solid var(--border); gap:8px; }
+.code-header .lang { font-family: var(--mono); font-size:.7rem; color: var(--muted); flex:1; }
+.code-header .file { font-family: var(--mono); font-size:.7rem; color: var(--accent); }
+.copy-btn { background:none; border:1px solid var(--border); color: var(--muted); padding:3px 9px; border-radius:6px; font-family: var(--mono); font-size:.68rem; cursor:pointer; transition: all .15s; }
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { color: var(--accent2); border-color: var(--accent2); }
+pre { margin:0!important; border-radius:0!important; }
+code.hljs { font-family: var(--mono); font-size:.82rem; line-height:1.6; padding:18px!important; }
+
+/* ─── INLINE CODE ──────────────────────────── */
+p code, li code, td code { background: rgba(0,212,255,.1); border:1px solid rgba(0,212,255,.2); color: var(--accent); padding:1px 6px; border-radius:4px; font-family: var(--mono); font-size:.82em; }
+
+/* ─── TABLES ────────────────────────────────── */
+.table-wrap { overflow-x:auto; margin:18px 0; border-radius:10px; border:1px solid var(--border); }
+table { width:100%; border-collapse:collapse; font-size:.85rem; }
+thead tr { background: var(--card); }
+th { padding:10px 14px; text-align:left; font-family: var(--mono); font-size:.75rem; font-weight:700; color: var(--accent); letter-spacing:.5px; border-bottom:1px solid var(--border); }
+td { padding:9px 14px; border-bottom:1px solid rgba(30,42,58,.5); color: var(--text); vertical-align:top; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background: rgba(255,255,255,.015); }
+td code { font-size:.8em; }
+
+/* ─── CALLOUTS ─────────────────────────────── */
+.callout { padding:14px 18px; border-radius:10px; margin:20px 0; border-left:3px solid; display:flex; gap:12px; align-items:flex-start; }
+.callout-icon { font-size:1.1rem; margin-top:2px; flex-shrink:0; }
+.callout-body { flex:1; font-size:.88rem; line-height:1.65; }
+.callout-body strong { display:block; margin-bottom:4px; }
+.info { background: rgba(0,212,255,.07); border-color: var(--accent); }
+.info .callout-icon, .info .callout-body strong { color: var(--accent); }
+.success { background: rgba(0,255,157,.07); border-color: var(--accent2); }
+.success .callout-icon, .success .callout-body strong { color: var(--accent2); }
+.warning { background: rgba(255,169,64,.07); border-color: var(--warn); }
+.warning .callout-icon, .warning .callout-body strong { color: var(--warn); }
+.danger { background: rgba(255,92,122,.07); border-color: var(--danger); }
+.danger .callout-icon, .danger .callout-body strong { color: var(--danger); }
+
+/* ─── STEP LIST ─────────────────────────────── */
+.steps { counter-reset:step; list-style:none; margin:20px 0; }
+.steps li { counter-increment:step; padding:14px 14px 14px 58px; position:relative; border-left:1px solid var(--border); margin-left:20px; margin-bottom:2px; }
+.steps li::before { content:counter(step); position:absolute; left:-20px; top:10px; width:38px; height:38px; background: var(--card); border:2px solid var(--border); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family: var(--mono); font-weight:700; font-size:.82rem; color: var(--accent); }
+.steps li:last-child { border-left-color:transparent; }
+
+/* ─── FEATURE GRID ─────────────────────────── */
+.feat-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap:16px; margin:20px 0; }
+.feat-card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; transition: border-color .2s; }
+.feat-card:hover { border-color: var(--accent); }
+.feat-card .fi { font-size:1.5rem; margin-bottom:10px; }
+.feat-card h4 { color: var(--accent); margin:0 0 6px; font-family: var(--display); font-size:.95rem; }
+.feat-card p { font-size:.82rem; color: var(--muted); margin:0; line-height:1.5; }
+
+/* ─── WIRING DIAGRAM ────────────────────────── */
+.wiring { display:flex; gap:0; justify-content:center; align-items:stretch; margin:28px 0; flex-wrap:wrap; gap:24px; }
+.wire-block { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:18px 24px; min-width:180px; text-align:center; }
+.wire-block h4 { font-family: var(--mono); font-size:.8rem; color: var(--accent); margin-bottom:12px; letter-spacing:1px; }
+.pin { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:5px 0; font-family: var(--mono); font-size:.8rem; border-bottom:1px solid rgba(30,42,58,.4); }
+.pin:last-child { border:none; }
+.pin .pname { color: var(--text); }
+.pin .pnum { color: var(--accent2); font-weight:700; }
+.wire-arrow { display:flex; align-items:center; color: var(--accent); font-size:1.4rem; }
+
+/* ─── FLOW DIAGRAM ──────────────────────────── */
+.flow { display:flex; flex-direction:column; align-items:center; gap:0; margin:24px auto; max-width:520px; }
+.flow-node { background: var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 22px; font-family: var(--mono); font-size:.8rem; text-align:center; width:100%; max-width:380px; position:relative; }
+.flow-node.start { background:rgba(0,255,157,.12); border-color: var(--accent2); color: var(--accent2); }
+.flow-node.end { background:rgba(255,92,122,.12); border-color: var(--danger); color: var(--danger); }
+.flow-node.group-title { background: rgba(0,212,255,.08); border-color: var(--accent); color: var(--accent); font-weight:700; font-size:.75rem; letter-spacing:1px; }
+.flow-arrow { color: var(--muted); font-size:1.2rem; margin:2px 0; }
+.flow-label { font-family: var(--mono); font-size:.7rem; color: var(--accent2); background: rgba(0,255,157,.1); border:1px solid rgba(0,255,157,.2); border-radius:6px; padding:2px 10px; margin:2px 0; }
+
+/* ─── TOOL CARD ─────────────────────────────── */
+.tool-card { background: var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; margin:24px 0; }
+.tool-card .tc-head { display:flex; align-items:flex-start; gap:14px; margin-bottom:16px; }
+.tool-card .tc-icon { font-size:2rem; width:52px; height:52px; display:flex; align-items:center; justify-content:center; background: rgba(0,212,255,.1); border-radius:10px; flex-shrink:0; }
+.tool-card .tc-title { font-family: var(--display); font-weight:700; font-size:1.1rem; color: var(--accent); }
+.tool-card .tc-sub { font-size:.82rem; color: var(--muted); margin-top:2px; }
+
+/* ─── ACCORDION ─────────────────────────────── */
+details { background: var(--card); border:1px solid var(--border); border-radius:10px; margin:12px 0; }
+summary { padding:14px 18px; cursor:pointer; font-family: var(--mono); font-size:.85rem; color: var(--accent); list-style:none; display:flex; align-items:center; gap:8px; }
+summary::before { content:'▶'; font-size:.65rem; transition: transform .2s; }
+details[open] summary::before { transform: rotate(90deg); }
+details .det-body { padding:0 18px 16px; }
+
+/* ─── RESPONSIVE ────────────────────────────── */
+@media (max-width:768px) {
+  #hamburger { display:block; }
+  #sidebar { transform: translateX(-100%); }
+  #sidebar.open { transform: translateX(0); }
+  #main { margin-left:0; padding:24px 18px 60px; }
+  h1 { font-size:1.8rem; }
+  #search-box { display:none; }
+}
+
+/* ─── MISC ──────────────────────────────────── */
+ul, ol { padding-left:22px; margin-bottom:14px; }
+li { margin-bottom:5px; font-size:.9rem; }
+hr { border:none; border-top:1px solid var(--border); margin:36px 0; }
+.mono { font-family: var(--mono); }
+.accent { color: var(--accent); }
+.accent2 { color: var(--accent2); }
+.warn-text { color: var(--warn); }
+.toc-box { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:20px 24px; margin:24px 0; }
+.toc-box h4 { font-family: var(--mono); color: var(--accent); margin-bottom:12px; }
+.toc-box ol { padding-left:18px; }
+.toc-box li { font-size:.85rem; }
+.toc-box a { color: var(--muted); text-decoration:none; }
+.toc-box a:hover { color: var(--accent); }
+.tag { display:inline-block; font-family: var(--mono); font-size:.68rem; padding:2px 8px; border-radius:4px; font-weight:700; }
+.tag-new { background:rgba(0,255,157,.15); color: var(--accent2); }
+.tag-esp { background:rgba(0,212,255,.15); color: var(--accent); }
+.divider { display:flex; align-items:center; gap:14px; margin:40px 0 16px; }
+.divider::before, .divider::after { content:''; flex:1; height:1px; background: var(--border); }
+.divider span { font-family: var(--mono); font-size:.7rem; color: var(--muted); letter-spacing:2px; white-space:nowrap; }
+
+/* Glowing button style for UART simulator */
+.link-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #22d3ee, #38bdf8);
+  color: #020617;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: 0.3s;
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.4);
+  cursor: pointer;
+  margin-top: 12px;
+}
+.link-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.8);
+}
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─────────────────────────────────────────── -->
+<div id="header">
+  <button id="hamburger" onclick="toggleSidebar()">☰</button>
+  <div class="logo">ESP32 + <span>Cavli C16QS</span></div>
+  <div id="search-box">
+    <span class="ico">🔍</span>
+    <input type="text" id="search-input" placeholder="Search documentation…" autocomplete="off" oninput="doSearch(this.value)" onblur="setTimeout(()=>document.getElementById('search-results').style.display='none',200)"/>
+    <div id="search-results"></div>
+  </div>
+  <button id="theme-toggle" onclick="toggleTheme()">☀ Light</button>
+</div>
+
+<!-- ─── SIDEBAR ────────────────────────────────────────── -->
+<nav id="sidebar">
+  <div class="nav-section">Getting Started</div>
+  <a class="nav-link" href="#introduction">1. Introduction</a>
+  <a class="nav-link" href="#hardware">2. Hardware Overview</a>
+  <a class="nav-link" href="#interfacing">3. ESP32 ↔ C16QS Interfacing</a>
+
+  <div class="nav-section">Communication</div>
+  <a class="nav-link" href="#at-commands">4. AT Commands</a>
+  <a class="nav-link" href="#ping">5. Ping Requests</a>
+  <a class="nav-link" href="#data">6. Data Communication</a>
+
+  <div class="nav-section">Tools</div>
+  <a class="nav-link" href="#python-tools">7. Python Utility Tools</a>
+  <a class="nav-link" href="#project">8. Main ESP32 Project</a>
+
+  <div class="nav-section">Deep Dives</div>
+  <a class="nav-link" href="#esp-walkthrough">9. ESP32 Code Walkthrough</a>
+  <a class="nav-link" href="#python-walkthrough">10. Python Code Walkthrough</a>
+  <a class="nav-link" href="#new-project">11. Creating a New Project</a>
+
+  <div class="nav-section">Integration</div>
+  <a class="nav-link" href="#raspberry-pi">12. Raspberry Pi Guide</a>
+  <a class="nav-link" href="#troubleshoot">13. Troubleshooting</a>
+  <a class="nav-link" href="#reference">14. AT Reference</a>
+</nav>
+
+<!-- ─── MAIN ───────────────────────────────────────────── -->
+<main id="main">
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 1 — INTRODUCTION
+═══════════════════════════════════════════════════════════ -->
+<section id="introduction">
+  <div class="hero">
+    <h1>ESP32 + Cavli C16QS</h1>
+    <p style="font-size:1.05rem;color:var(--muted);max-width:640px;">A complete developer guide covering hardware setup, AT commands, PPP/PPPoS cellular connectivity, HTTP data transmission, GNSS tracking, and Python diagnostic tooling — from first boot to internet-connected IoT device.</p>
+    <div class="chips">
+      <span class="chip chip-blue">ESP-IDF v5.x</span>
+      <span class="chip chip-green">PPPoS / lwIP</span>
+      <span class="chip chip-orange">AT Commands</span>
+      <span class="chip chip-blue">GNSS / NMEA</span>
+      <span class="chip chip-green">Python Tkinter GUI</span>
+      <span class="chip chip-orange">Raspberry Pi</span>
+    </div>
+  </div>
+
+<div class="divider"><span><center><image src="pics/Cavlii_C16QS_Dev_Board.jpg" width="60%" alt="Divider"></center></span></div>
+
+  <div class="toc-box">
+    <h4>📋 Table of Contents</h4>
+    <ol>
+      <li><a href="#introduction">Introduction — ESP32 &amp; Cavli C16QS overview</a></li>
+      <li><a href="#hardware">Hardware Overview — pins, power, UART</a></li>
+      <li><a href="#interfacing">Interfacing — wiring, configuration, initialization</a></li>
+      <li><a href="#at-commands">AT Commands — fundamentals &amp; command sequence</a></li>
+      <li><a href="#ping">Ping Requests — connectivity &amp; DNS testing</a></li>
+      <li><a href="#data">Data Communication — HTTP, MQTT, TCP/UDP</a></li>
+      <li><a href="#python-tools">Python Utility Tools — PPP Workbench, GNSS Monitor</a></li>
+      <li><a href="#project">Main ESP32 Project — architecture &amp; workflow</a></li>
+      <li><a href="#esp-walkthrough">ESP32 Source Code Walkthrough — line-by-line</a></li>
+      <li><a href="#python-walkthrough">Python Source Code Walkthrough</a></li>
+      <li><a href="#new-project">Creating a New Project — from scratch</a></li>
+      <li><a href="#raspberry-pi">Raspberry Pi + Cavli C16QS Integration</a></li>
+      <li><a href="#troubleshoot">Troubleshooting Guide</a></li>
+      <li><a href="#reference">AT Command Reference</a></li>
+    </ol>
+  </div>
+
+  <h2>🌐 Cavlii Simulator</h2>
+  <a href="\Scripts\html\cavli_ppp_terminal.html" class="link-btn">
+    🔗 Open Cavlii Simulator
+  </a>
+
+  <h2>1.1 ESP32 Platform Overview</h2>
+  <p>The <strong>ESP32</strong> is a powerful, low-cost System-on-Chip (SoC) by Espressif Systems. It features a dual-core Xtensa LX6 processor running up to 240 MHz, 520 KB SRAM, integrated Wi-Fi (802.11 b/g/n), Bluetooth 4.2/BLE, and a rich peripheral set — including three hardware UART ports that make it ideal for modem interfacing.</p>
+
+  <div class="feat-grid">
+    <div class="feat-card"><div class="fi">⚡</div><h4>Dual-Core 240 MHz</h4><p>Xtensa LX6 cores — one for real-time modem I/O, one for application logic.</p></div>
+    <div class="feat-card"><div class="fi">📡</div><h4>3× Hardware UART</h4><p>UART0 (debug), UART1, UART2 — UART2 used for modem on pins 16/17.</p></div>
+    <div class="feat-card"><div class="fi">🌐</div><h4>lwIP TCP/IP</h4><p>Full-featured embedded TCP/IP stack with PPPoS support built into ESP-IDF.</p></div>
+    <div class="feat-card"><div class="fi">🔧</div><h4>FreeRTOS</h4><p>Real-time OS with tasks, queues, event groups — used for PPP RX task.</p></div>
+  </div>
+
+  <h2>1.2 Cavli C16QS Module Overview</h2>
+  <p>The <strong>Cavli C16QS</strong> is a compact LTE Cat-1 cellular IoT module offering a full suite of communication capabilities. It bridges your embedded device to the global cellular network and exposes functionality through a standard AT command interface over UART.</p>
+
+  <div class="feat-grid">
+    <div class="feat-card"><div class="fi">📶</div><h4>LTE Cat-1</h4><p>10 Mbps DL / 5 Mbps UL — ideal for IoT telemetry and moderate-bandwidth applications.</p></div>
+    <div class="feat-card"><div class="fi">🛰️</div><h4>GNSS Built-in</h4><p>Integrated GNSS receiver supporting GPS, GLONASS — outputs NMEA sentences over UART.</p></div>
+    <div class="feat-card"><div class="fi">🔗</div><h4>PPP Support</h4><p>Native <code>AT+PPPSTART</code> command switches UART to binary PPP data mode.</p></div>
+    <div class="feat-card"><div class="fi">🛡️</div><h4>Standard AT Interface</h4><p>ITU-T V.25ter + 3GPP TS 27.007 / 27.005 AT command set.</p></div>
+  </div>
+
+  <h2>1.3 Typical IoT Applications</h2>
+  <ul>
+    <li>Remote sensor telemetry over cellular (temperature, pressure, vibration)</li>
+    <li>Asset tracking with GPS + cellular uplink</li>
+    <li>Industrial gateway bridging field devices to cloud platforms</li>
+    <li>Smart metering and utility monitoring</li>
+    <li>Emergency communication devices with fallback connectivity</li>
+    <li>Agricultural IoT — soil, weather, irrigation automation</li>
+  </ul>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 2 — HARDWARE OVERVIEW
+═══════════════════════════════════════════════════════════ -->
+<section id="hardware">
+  <h2>2. Hardware Overview</h2>
+
+  <h3>2.1 ESP32 UART Pin Map</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>UART Port</th><th>Default TX</th><th>Default RX</th><th>Role in this Project</th></tr></thead>
+      <tbody>
+        <tr><td><code>UART0</code></td><td>GPIO1</td><td>GPIO3</td><td>USB debug serial / ESP-IDF monitor</td></tr>
+        <tr><td><code>UART1</code></td><td>GPIO10</td><td>GPIO9</td><td>Available for other peripherals</td></tr>
+        <tr><td><code>UART2</code></td><td><strong>GPIO17</strong></td><td><strong>GPIO16</strong></td><td><span class="accent">Modem interface (C16QS)</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>2.2 Cavli C16QS Power Requirements</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Parameter</th><th>Value</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Supply Voltage (VCC)</td><td>3.3 V – 4.2 V</td><td>Use 3.7 V LiPo or regulated 3.8 V</td></tr>
+        <tr><td>Peak Current (Tx burst)</td><td>Up to 2 A</td><td>Use bulk capacitors (≥470 µF)</td></tr>
+        <tr><td>Idle Current</td><td>~5 mA</td><td>With RF on, no data</td></tr>
+        <tr><td>UART Logic Level</td><td>1.8 V</td><td>Level-shift if ESP32 (3.3 V) is used directly</td></tr>
+        <tr><td>Power-on Sequence</td><td>PWRKEY pulse</td><td>Hold PWRKEY low for ≥500 ms</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warning">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body">
+      <strong>Voltage Warning</strong>
+      The C16QS UART pins operate at <strong>1.8 V logic</strong>. Connecting 3.3 V ESP32 UART directly without a level shifter may damage the module. Use a bidirectional level-shift IC (e.g., TXS0102 or similar) or the official EVK USB serial port which handles level conversion internally.
+    </div>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 3 — INTERFACING
+═══════════════════════════════════════════════════════════ -->
+<section id="interfacing">
+  <h2>3. ESP32 ↔ Cavli C16QS Interfacing</h2>
+
+  <h3>3.1 Required Hardware</h3>
+  <ul>
+    <li>ESP32 development board (ESP32-DevKitC, WROOM-32, or similar)</li>
+    <li>Cavli C16QS module or EVK (Evaluation Kit)</li>
+    <li>Activated nano/micro SIM card (with data plan — e.g., Airtel)</li>
+    <li>Antenna: LTE main + diversity antennas connected to U.FL connectors</li>
+    <li>1.8 V ↔ 3.3 V bidirectional level shifter (if not using EVK)</li>
+    <li>Stable 3.8 V power supply with ≥2 A capability</li>
+    <li>USB-to-UART bridge (CP2102/CH340) for serial debugging</li>
+    <li>Jumper wires</li>
+  </ul>
+
+  <h3>3.2 UART Wiring Diagram</h3>
+  <div class="wiring">
+    <div class="wire-block">
+      <h4>ESP32</h4>
+      <div class="pin"><span class="pname">GPIO17 (TX)</span><span class="pnum">→</span></div>
+      <div class="pin"><span class="pname">GPIO16 (RX)</span><span class="pnum">←</span></div>
+      <div class="pin"><span class="pname">GND</span><span class="pnum">—</span></div>
+      <div class="pin"><span class="pname">3.3 V</span><span class="pnum">→</span></div>
+    </div>
+    <div class="wire-arrow" style="flex-direction:column;gap:4px;font-size:.75rem;color:var(--accent);">
+      <span>──────</span>
+      <span>Level</span>
+      <span>Shifter</span>
+      <span>──────</span>
+    </div>
+    <div class="wire-block">
+      <h4>Cavli C16QS</h4>
+      <div class="pin"><span class="pnum">←</span><span class="pname">UART RX</span></div>
+      <div class="pin"><span class="pnum">→</span><span class="pname">UART TX</span></div>
+      <div class="pin"><span class="pnum">—</span><span class="pname">GND</span></div>
+      <div class="pin"><span class="pnum">←</span><span class="pname">VCC (3.8 V)</span></div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body">
+      <strong>TX/RX Crossing is Mandatory</strong>
+      The UART lines must cross: ESP32 TX → Module RX, and Module TX → ESP32 RX. TX-to-TX or RX-to-RX connections will produce no communication. Always verify GND is shared between all devices.
+    </div>
+  </div>
+
+  <h3>3.3 Connection Summary Table</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ESP32 Pin</th><th>Direction</th><th>C16QS Signal</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>GPIO17 (UART2_TX)</code></td><td>→</td><td>RXD</td><td>ESP32 transmits AT commands &amp; PPP frames</td></tr>
+        <tr><td><code>GPIO16 (UART2_RX)</code></td><td>←</td><td>TXD</td><td>ESP32 receives module responses &amp; PPP data</td></tr>
+        <tr><td><code>GND</code></td><td>—</td><td>GND</td><td>Common ground reference</td></tr>
+        <tr><td><code>EN / RESET</code></td><td>→</td><td>RESET_N</td><td>Optional module reset line (active low)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>3.4 UART Configuration (ESP-IDF)</h3>
+  <p>The firmware configures UART2 with these exact parameters — matching the C16QS default serial settings:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Baud Rate</td><td><code>115200</code></td></tr>
+        <tr><td>Data Bits</td><td><code>8</code></td></tr>
+        <tr><td>Parity</td><td><code>None</code></td></tr>
+        <tr><td>Stop Bits</td><td><code>1</code></td></tr>
+        <tr><td>Flow Control</td><td><code>Disabled</code></td></tr>
+        <tr><td>RX Buffer</td><td><code>4096 bytes</code></td></tr>
+        <tr><td>TX Buffer</td><td><code>4096 bytes</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>3.5 Module Initialization Flow</h3>
+  <div class="flow">
+    <div class="flow-node start">Power ON — Hold PWRKEY ≥500 ms</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">Wait for boot (~3–5 seconds)</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">Send <code>AT</code> → expect <code>OK</code></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">Send <code>ATE0</code> — disable echo</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">Send <code>AT+CPIN?</code> → expect <code>+CPIN: READY</code></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">Send <code>AT+CFUN=1</code> — enable full RF</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">Poll registration → <code>AT+CREG?</code> / <code>AT+CEREG?</code></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node end">Module Ready for Data / PPP</div>
+  </div>
+</section>
+<div class="divider"><span><center><image src="pics/Flow_Chart.png" width="60%" alt="Divider"></center></span></div>
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 4 — AT COMMANDS
+═══════════════════════════════════════════════════════════ -->
+<section id="at-commands">
+  <h2>4. AT Commands</h2>
+
+  <h3>4.1 AT Command Fundamentals</h3>
+  <p>AT commands are ASCII text instructions originally designed for Hayes-compatible modems and standardized by ITU-T V.25ter and 3GPP TS 27.007. Every command begins with the prefix <code>AT</code> (Attention) and is terminated by a carriage return (<code>\r</code>). The module responds with result codes like <code>OK</code> or <code>ERROR</code>.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command Form</th><th>Example</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Basic test</td><td><code>AT</code></td><td>Verify module is alive</td></tr>
+        <tr><td>Set</td><td><code>AT+CFUN=1</code></td><td>Write a parameter value</td></tr>
+        <tr><td>Read</td><td><code>AT+CREG?</code></td><td>Read current parameter</td></tr>
+        <tr><td>Test range</td><td><code>AT+CFUN=?</code></td><td>Query supported values</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>4.2 Complete AT Command Sequence (PPP Mode)</h3>
+  <p>The following is the exact command sequence used by the firmware before entering PPP mode. Steps are numbered to match the flow chart image.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Command</th><th>Expected Response</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>AT</code></td><td><code>OK</code></td><td>Basic connectivity test</td></tr>
+        <tr><td>2</td><td><code>ATE0</code></td><td><code>OK</code></td><td>Disable command echo</td></tr>
+        <tr><td>3</td><td><code>AT+CMEE=2</code></td><td><code>OK</code></td><td>Enable verbose error messages</td></tr>
+        <tr><td>4</td><td><code>AT+CPIN?</code></td><td><code>+CPIN: READY</code></td><td>Verify SIM is unlocked</td></tr>
+        <tr><td>5</td><td><code>AT+CFUN=1</code></td><td><code>OK</code></td><td>Enable full radio functionality</td></tr>
+        <tr><td>6</td><td><code>AT+COPS=0</code></td><td><code>OK</code></td><td>Auto-select network operator</td></tr>
+        <tr><td>7</td><td><code>AT+CREG=1</code></td><td><code>OK</code></td><td>Enable circuit-switched registration URC</td></tr>
+        <tr><td>8</td><td><code>AT+CEREG=1</code></td><td><code>OK</code></td><td>Enable LTE/EPS registration URC</td></tr>
+        <tr><td>9</td><td><code>AT+CSQ</code></td><td><code>+CSQ: 23,0</code></td><td>Read signal quality (RSSI)</td></tr>
+        <tr><td>10</td><td><code>AT+CREG?</code></td><td><code>+CREG: 1,1</code> or <code>1,5</code></td><td>Check circuit registration (1=home, 5=roaming)</td></tr>
+        <tr><td>11</td><td><code>AT+CEREG?</code></td><td><code>+CEREG: 1,1</code></td><td>Check LTE registration</td></tr>
+        <tr><td>12</td><td><code>AT+CGATT?</code></td><td><code>+CGATT: 1</code></td><td>Verify packet domain attach</td></tr>
+        <tr><td>13</td><td><code>AT+CGDCONT=1,"IP","airtelgprs.com"</code></td><td><code>OK</code></td><td>Configure PDP context with APN</td></tr>
+        <tr><td>14</td><td><code>AT+CGDCONT?</code></td><td><code>+CGDCONT: 1,"IP","airtelgprs.com",...</code></td><td>Verify APN configuration</td></tr>
+        <tr><td>15</td><td><code>AT+CGACT=1,1</code></td><td><code>OK</code></td><td>Activate PDP context</td></tr>
+        <tr><td>16</td><td><code>AT+CGACT?</code></td><td><code>+CGACT: 1,1</code></td><td>Verify PDP activation</td></tr>
+        <tr><td>17</td><td><code>AT+PPPSTART</code></td><td><code>CONNECT</code> / <code>+PPPSTART</code></td><td>Switch UART to binary PPP mode</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout danger">
+    <div class="callout-icon">🚨</div>
+    <div class="callout-body">
+      <strong>After AT+PPPSTART — Do Not Send AT Commands!</strong>
+      Once <code>AT+PPPSTART</code> succeeds and returns <code>CONNECT</code>, the UART transitions from ASCII text mode to binary PPP data mode. Any AT command sent at this point will corrupt the PPP session. The firmware logs: <em>"UART is now PPP binary mode. Do not send more AT commands."</em>
+    </div>
+  </div>
+
+  <h3>4.3 Serial Monitor Output Example</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">Serial Output</span><span class="file">ESP-IDF Monitor</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-plaintext">I (1230) CAVLI_PPP: ESP32 + Cavli C16QS AT+PPPSTART + PPPoS + HTTP POST
+I (1232) CAVLI_PPP: Preparing Cavli modem for PPP mode
+I (1234) CAVLI_PPP: MODEM >>> AT
+AT
+OK
+I (1244) CAVLI_PPP: MODEM command OK
+I (1246) CAVLI_PPP: MODEM >>> ATE0
+ATE0
+OK
+I (1260) CAVLI_PPP: MODEM command OK
+I (1262) CAVLI_PPP: MODEM >>> AT+CMEE=2
+OK
+I (1272) CAVLI_PPP: MODEM command OK
+I (1274) CAVLI_PPP: MODEM >>> AT+CPIN?
++CPIN: READY
+OK
+I (1290) CAVLI_PPP: MODEM command OK
+I (1292) CAVLI_PPP: MODEM >>> AT+CFUN=1
+OK
+I (1300) CAVLI_PPP: MODEM command OK
+W (45000) CAVLI_PPP: Network not ready. Retrying in 5 seconds...
+I (50200) CAVLI_PPP: Network ready
+I (50210) CAVLI_PPP: MODEM >>> AT+PPPSTART
+CONNECT
+I (65000) CAVLI_PPP: PPP mode started
+I (65001) CAVLI_PPP: UART is now PPP binary mode. Do not send more AT commands.
+I (65200) CAVLI_PPP: Starting lwIP PPPoS
+I (65205) CAVLI_PPP: PPP RX task started
+I (65210) CAVLI_PPP: Starting PPP negotiation
+I (67500) CAVLI_PPP: PPP CONNECTED
+I (67502) CAVLI_PPP: PPP IP  : 100.95.4.168
+I (67503) CAVLI_PPP: PPP GW  : 10.64.64.64
+I (67504) CAVLI_PPP: PPP MASK: 255.255.255.255
+I (67506) CAVLI_PPP: DNS0: 8.8.8.8
+I (67507) CAVLI_PPP: DNS1: 1.1.1.1</code></pre>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 5 — PING
+═══════════════════════════════════════════════════════════ -->
+<section id="ping">
+  <h2>5. Ping Requests &amp; PPP Connectivity Testing</h2>
+
+  <h3>5.1 How Ping Works Over PPP</h3>
+  <p>A cellular ping does not use the standard OS-level ping utility. Instead, ICMP Echo Request packets are manually constructed and encapsulated within PPP frames — the entire stack is:</p>
+
+  <div class="flow">
+    <div class="flow-node group-title">ICMP Echo Request (Type 8, Code 0)</div>
+    <div class="flow-arrow">↓ encapsulated in</div>
+    <div class="flow-node group-title">IPv4 Packet (Protocol 0x01 = ICMP)</div>
+    <div class="flow-arrow">↓ wrapped in</div>
+    <div class="flow-node group-title">PPP Frame (Protocol 0x0021 = IPv4)</div>
+    <div class="flow-arrow">↓ byte-escaped + FCS added</div>
+    <div class="flow-node group-title">Raw Bytes over UART</div>
+  </div>
+
+  <h3>5.2 PPP Frame Structure</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Byte(s)</th><th>Value</th><th>Field</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>0x7E</code></td><td><code>7E</code></td><td>Flag</td><td>Start-of-frame delimiter</td></tr>
+        <tr><td><code>0xFF</code></td><td><code>FF</code></td><td>Address</td><td>All-stations broadcast address</td></tr>
+        <tr><td><code>0x03</code></td><td><code>03</code></td><td>Control</td><td>Unnumbered Information (UI) frame</td></tr>
+        <tr><td><code>[2]</code></td><td>e.g. <code>C0 21</code></td><td>Protocol</td><td>LCP / IPCP / IPv4 identifier</td></tr>
+        <tr><td>variable</td><td>—</td><td>Information</td><td>LCP/IPCP options or IPv4 payload</td></tr>
+        <tr><td><code>[2]</code></td><td>—</td><td>FCS</td><td>CRC-16 HDLC checksum (little-endian)</td></tr>
+        <tr><td><code>0x7E</code></td><td><code>7E</code></td><td>Flag</td><td>End-of-frame delimiter</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.3 PPP Protocol Values</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Protocol</th><th>Hex</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>LCP</td><td><code>C0 21</code></td><td>Link Control — negotiate link parameters, keepalive, teardown</td></tr>
+        <tr><td>PAP</td><td><code>C0 23</code></td><td>Password Authentication (if requested by server)</td></tr>
+        <tr><td>CHAP</td><td><code>C2 23</code></td><td>Challenge Handshake Auth (if requested by server)</td></tr>
+        <tr><td>IPCP</td><td><code>80 21</code></td><td>IP Control — negotiate IPv4 address, DNS</td></tr>
+        <tr><td>IPv4</td><td><code>00 21</code></td><td>Actual IPv4 data packets (ICMP, TCP, UDP)</td></tr>
+        <tr><td>IPv6CP</td><td><code>80 57</code></td><td>IPv6 Control (not needed for IPv4 ping)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.4 PPP Negotiation Sequence</h3>
+  <ol class="steps">
+    <li><strong>LCP Configure-Request</strong> — Host and modem exchange LCP Configure-Requests negotiating MRU (Maximum Receive Unit), Magic Number, and compression options.</li>
+    <li><strong>LCP Configure-Ack</strong> — Each side acknowledges the other's options. LCP is now <span class="accent2">OPEN</span>.</li>
+    <li><strong>IPCP Configure-Request</strong> — Host sends IPCP request with IP <code>0.0.0.0</code> and DNS <code>0.0.0.0</code> to request addresses from the server.</li>
+    <li><strong>IPCP Configure-Nak</strong> — Server replies with suggested IP and DNS addresses.</li>
+    <li><strong>IPCP Configure-Request (retry)</strong> — Host re-sends with the suggested IP/DNS values.</li>
+    <li><strong>IPCP Configure-Ack</strong> — Server accepts. IPCP is now <span class="accent2">OPEN</span>. Host has an IP address.</li>
+    <li><strong>IPv4 / ICMP Traffic</strong> — With IPCP open, the host can now send IPv4 packets (including ICMP ping) encapsulated in PPP frames.</li>
+  </ol>
+
+  <h3>5.5 Python Ping Packet Generator</h3>
+  <p>The <code>cavli_generateppp_packets.py</code> tool can construct ICMP Echo Request packets for manual testing. Example usage:</p>
+
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">python</span><span class="file">cavli_generateppp_packets.py — ICMP builder</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-python"># Build an ICMP Echo Request inside a PPP frame
+# src_ip: your assigned IP from IPCP negotiation
+# dst_ip: ping target (e.g. 8.8.8.8 = Google DNS)
+pkt = build_icmp_echo(
+    src_ip="100.95.4.168",   # Your IPCP-assigned IP
+    dst_ip="8.8.8.8",        # Target (Google DNS)
+    seq=1,
+    payload_str="Cavli-PPP-Test"
+)
+# pkt is raw bytes — send over UART as-is (no ASCII encoding)
+print(" ".join(f"{b:02X}" for b in pkt))</code></pre>
+  </div>
+
+  <h3>5.6 Interpreting a Successful Ping Response</h3>
+  <p>A valid ICMP Echo Reply from <code>8.8.8.8</code> will arrive as a PPP frame with:</p>
+  <ul>
+    <li>PPP Protocol: <code>00 21</code> (IPv4)</li>
+    <li>IPv4 Source: <code>8.8.8.8</code>, Destination: your IPCP IP</li>
+    <li>IPv4 Protocol byte: <code>01</code> (ICMP)</li>
+    <li>ICMP Type: <code>00</code> (Echo Reply), Code: <code>00</code></li>
+    <li>ICMP Identifier and Sequence match the sent Echo Request</li>
+  </ul>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 6 — DATA COMMUNICATION
+═══════════════════════════════════════════════════════════ -->
+<section id="data">
+  <h2>6. Data Communication</h2>
+
+  <h3>6.1 HTTP POST via PPPoS (Project Implementation)</h3>
+  <p>Once PPPoS establishes an IP connection, the ESP32 uses standard lwIP BSD socket APIs — exactly like any TCP/IP-connected device. The firmware sends HTTP POST requests to a webhook endpoint:</p>
+
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — HTTP POST function</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">// 1. DNS Resolution
+struct addrinfo hints = { .ai_family=AF_INET, .ai_socktype=SOCK_STREAM };
+struct addrinfo *res;
+getaddrinfo("webhook.site", NULL, &hints, &res);
+
+// 2. Create TCP socket
+int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+
+// 3. Set timeouts (15 seconds)
+struct timeval timeout = { .tv_sec=15, .tv_usec=0 };
+setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+// 4. Connect to server
+connect(sock, res->ai_addr, res->ai_addrlen);
+
+// 5. Build and send HTTP POST
+snprintf(request, sizeof(request),
+    "POST /path HTTP/1.1\r\n"
+    "Host: webhook.site\r\n"
+    "Content-Type: text/plain\r\n"
+    "Content-Length: %u\r\n"
+    "Connection: close\r\n\r\n%s",
+    strlen(body), body);
+send(sock, request, strlen(request), 0);
+
+// 6. Read response
+recv(sock, rx, sizeof(rx)-1, 0);
+close(sock);</code></pre>
+  </div>
+
+  <h3>6.2 HTTP GET Request Example</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">HTTP GET over PPPoS socket</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">// Resolve hostname
+getaddrinfo("api.example.com", NULL, &hints, &res);
+int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+connect(sock, res->ai_addr, res->ai_addrlen);
+
+// Build GET request
+snprintf(request, sizeof(request),
+    "GET /data/sensors HTTP/1.1\r\n"
+    "Host: api.example.com\r\n"
+    "User-Agent: ESP32-Cavli/1.0\r\n"
+    "Connection: close\r\n\r\n");
+
+send(sock, request, strlen(request), 0);
+
+// Read chunked response
+while ((len = recv(sock, rx, sizeof(rx)-1, 0)) > 0) {
+    rx[len] = '\0';
+    printf("%s", rx);
+}
+close(sock);</code></pre>
+  </div>
+
+  <h3>6.3 TCP Socket Communication</h3>
+  <p>The same BSD socket API supports raw TCP connections to custom servers — useful for IoT telemetry protocols, MQTT brokers, or proprietary cloud APIs:</p>
+
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">Raw TCP socket example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">// After PPPoS connected, send JSON sensor data
+const char *json = "{\"temp\":25.4,\"hum\":62.1,\"device\":\"ESP32-001\"}";
+int sock = socket(AF_INET, SOCK_STREAM, 0);
+// connect to MQTT broker or custom TCP server on port 1883 / custom port
+struct sockaddr_in addr = { .sin_family=AF_INET, .sin_port=htons(1883) };
+inet_pton(AF_INET, "192.168.1.100", &addr.sin_addr);
+connect(sock, (struct sockaddr*)&addr, sizeof(addr));
+send(sock, json, strlen(json), 0);
+close(sock);</code></pre>
+  </div>
+
+  <h3>6.4 UDP Communication</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">UDP datagram example</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+struct sockaddr_in dest = {
+    .sin_family = AF_INET,
+    .sin_port   = htons(5005)
+};
+inet_pton(AF_INET, "203.0.113.10", &dest.sin_addr);
+const char *msg = "ESP32-Cavli:ALIVE";
+sendto(sock, msg, strlen(msg), 0, (struct sockaddr*)&dest, sizeof(dest));
+close(sock);</code></pre>
+  </div>
+
+  <h3>6.5 Serial Monitor — HTTP POST Output</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">plaintext</span><span class="file">Serial Monitor output during HTTP POST</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-plaintext">I (67800) CAVLI_PPP: Resolving webhook.site to IP
+I (68200) CAVLI_PPP: webhook.site resolved IP: 34.202.18.214
+I (68202) CAVLI_PPP: Connecting to IP 34.202.18.214:80
+I (68850) CAVLI_PPP: TCP connected
+I (68852) CAVLI_PPP: Sending HTTP POST
+
+---------------- HTTP REQUEST ----------------
+POST /a68f971c-ad3a-47aa-8b92-4879e7cdebbf HTTP/1.1
+Host: webhook.site
+User-Agent: ESP32-Cavli-PPPoS/1.0
+Content-Type: text/plain
+Content-Length: 5
+Connection: close
+
+shuva
+----------------------------------------------
+I (69400) CAVLI_PPP: HTTP request sent. Reading response...
+
+---------------- HTTP RESPONSE ---------------
+HTTP/1.1 200 OK
+Content-Type: text/plain
+...
+----------------------------------------------
+I (69800) CAVLI_PPP: HTTP POST done
+I (69802) CAVLI_PPP: First HTTP POST successful</code></pre>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 7 — PYTHON TOOLS
+═══════════════════════════════════════════════════════════ -->
+<section id="python-tools">
+  <h2>7. Python Utility Tools</h2>
+
+  <!-- Tool 1 -->
+  <div class="tool-card">
+    <div class="tc-head">
+      <div class="tc-icon">🛠️</div>
+      <div>
+        <div class="tc-title">cavli_generateppp_packets.py</div>
+        <div class="tc-sub">PPP Packet Builder &amp; Decoder — Tkinter GUI</div>
+      </div>
+    </div>
+    <p>A standalone Python/Tkinter GUI tool for building, inspecting, and decoding PPP packets. Designed for engineers who need to manually test PPP sessions using a USB-to-TTL serial adapter and a serial debug assistant application, or for studying PPP protocol internals.</p>
+
+    <h4>Features</h4>
+    <ul>
+      <li>Build LCP Configure-Request, Configure-Ack, Terminate-Request, Echo-Request packets</li>
+      <li>Build PAP Authentication Request (username/password)</li>
+      <li>Build IPCP Configure-Request and Configure-Ack with IP/DNS fields</li>
+      <li>Build ICMP Echo Request (Ping) packets wrapped in IPv4 in PPP</li>
+      <li>Paste raw hex from serial terminal → decode protocol, options, FCS validity</li>
+      <li>Next-Step Advisor — analyzes decoded packet and suggests what to send next</li>
+      <li>PPP state machine tracker and reset</li>
+    </ul>
+
+    <h4>Installation</h4>
+    <div class="code-wrap">
+      <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">pip install tkinter  # Usually included with Python
+python cavli_generateppp_packets.py</code></pre>
+    </div>
+
+    <h4>GUI Usage</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tab</th><th>Controls</th><th>Output</th></tr></thead>
+        <tbody>
+          <tr><td>LCP</td><td>MRU (default 1500), Magic Number, packet type</td><td>Hex bytes of PPP-framed LCP packet</td></tr>
+          <tr><td>PAP</td><td>Username (<code>airtelgprs.com</code>), Password</td><td>PAP Auth-Request frame bytes</td></tr>
+          <tr><td>IPCP</td><td>Requested IP (<code>0.0.0.0</code>), DNS, packet type</td><td>IPCP Configure-Request/Ack frame</td></tr>
+          <tr><td>ICMP</td><td>Source IP, Dest IP (<code>8.8.8.8</code>), Sequence, Payload text</td><td>Full PPP-wrapped ICMP ping frame</td></tr>
+          <tr><td>Decoder</td><td>Paste hex from serial terminal</td><td>Decoded protocol, fields, FCS status, advisor tip</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tool 2 -->
+  <div class="tool-card">
+    <div class="tc-head">
+      <div class="tc-icon">🌐</div>
+      <div>
+        <div class="tc-title">cavli_ppp_gui.py</div>
+        <div class="tc-sub">Live PPP Serial Workbench — Full Protocol Stack</div>
+      </div>
+    </div>
+    <p>A real-time PPP client GUI that connects to the Cavli C16QS over a COM/serial port and conducts the full PPP negotiation — LCP, IPCP — automatically. Useful for diagnosing PPP sessions without embedded firmware, or for testing modem behavior from a PC.</p>
+
+    <h4>Features</h4>
+    <ul>
+      <li>Selectable COM port and baud rate with live port scan</li>
+      <li>Automatic LCP negotiation (Configure-Request, Ack, Echo-Reply handling)</li>
+      <li>Automatic IPCP negotiation (handles Nak → retry with suggested IP)</li>
+      <li>Live packet log with color-coded protocol labels</li>
+      <li>Manual send panel for custom hex payloads</li>
+      <li>IP/DNS status display updated in real-time</li>
+    </ul>
+
+    <h4>Installation</h4>
+    <div class="code-wrap">
+      <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">pip install pyserial
+python cavli_ppp_gui.py</code></pre>
+    </div>
+
+    <h4>Workflow</h4>
+    <ol>
+      <li>Select COM port and baud rate (115200)</li>
+      <li>Click <strong>Open Port</strong></li>
+      <li>Manually send AT commands via the AT console tab until <code>AT+PPPSTART</code> succeeds</li>
+      <li>Switch to PPP mode — the tool auto-negotiates LCP and IPCP</li>
+      <li>Observe IP assignment and DNS in the status panel</li>
+    </ol>
+  </div>
+
+  <!-- Tool 3 -->
+  <div class="tool-card">
+    <div class="tc-head">
+      <div class="tc-icon">🛰️</div>
+      <div>
+        <div class="tc-title">fetch_gnss.py</div>
+        <div class="tc-sub">GNSS / GPS Monitor — NMEA Parser with Map Integration</div>
+      </div>
+    </div>
+    <p>A live GNSS monitoring GUI that reads NMEA sentences from the Cavli C16QS GNSS output port, parses GPS/GLONASS fix data, and can open the device's current location directly in Google Maps.</p>
+
+    <h4>Features</h4>
+    <ul>
+      <li>Auto-scans all available COM ports</li>
+      <li>Sends <code>AT+CGPS=1</code> and <code>AT+GPSPORT=1</code> to enable GNSS output</li>
+      <li>Parses <code>$GNRMC</code> (fix, lat/lon, time) and <code>$GNGGA</code> (satellites, altitude)</li>
+      <li>Displays: Fix status, Latitude, Longitude, Altitude, Satellite count, UTC Time</li>
+      <li>Live NMEA sentence log with scrolling</li>
+      <li>One-click Google Maps integration (opens browser at current coordinates)</li>
+    </ul>
+
+    <h4>Installation</h4>
+    <div class="code-wrap">
+      <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">pip install pyserial pynmea2
+python fetch_gnss.py</code></pre>
+    </div>
+
+    <h4>AT Commands Sent Automatically</h4>
+    <div class="code-wrap">
+      <div class="code-header"><span class="lang">plaintext</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-plaintext">AT          ← Verify module communication
+AT+CGPS=1   ← Enable GNSS engine
+AT+GPSPORT=1← Route NMEA output to serial port</code></pre>
+    </div>
+  </div>
+
+  <!-- Tool 4 -->
+  <div class="tool-card">
+    <div class="tc-head">
+      <div class="tc-icon">🔍</div>
+      <div>
+        <div class="tc-title">ppp_packet_decoder_gui.py</div>
+        <div class="tc-sub">Standalone PPP Frame Decoder</div>
+      </div>
+    </div>
+    <p>A focused decoder tool — paste any raw PPP hex dump (space/colon-separated or raw) and get a full dissection: FCS validation, protocol identification, LCP/IPCP option parsing, ICMP type decoding, and IP header breakdown.</p>
+
+    <h4>Installation</h4>
+    <div class="code-wrap">
+      <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">python ppp_packet_decoder_gui.py   # No extra dependencies needed</code></pre>
+    </div>
+  </div>
+
+  <!-- HTML Tools -->
+  <h3>7.5 Web-Based Tools</h3>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="fi">💻</div>
+      <h4>cavli-ppp-workbench.html</h4>
+      <p>Browser-based PPP packet builder and decoder — no installation required. Open in any modern browser.</p>
+    </div>
+    <div class="feat-card">
+      <div class="fi">🖥️</div>
+      <h4>cavli_ppp_terminal.html</h4>
+      <p>Web serial terminal for AT command interaction with the C16QS module (requires Chrome with Web Serial API).</p>
+    </div>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 8 — PROJECT ARCHITECTURE
+═══════════════════════════════════════════════════════════ -->
+<section id="project">
+  <h2>8. Main ESP32 Project Documentation</h2>
+
+  <h3>8.1 Project Folder Structure</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">bash</span><span class="file">Project tree</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-plaintext">esp32_cavli_ppppos/
+├── main/
+│   ├── CMakeLists.txt          ← Component registration
+│   └── main.c                  ← Full firmware source
+├── CMakeLists.txt              ← Project root build file
+├── sdkconfig                   ← menuconfig settings
+└── README.md</code></pre>
+  </div>
+
+  <h3>8.2 CMakeLists.txt (Component)</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">cmake</span><span class="file">main/CMakeLists.txt</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-cmake">idf_component_register(
+    SRCS "main.c"
+    INCLUDE_DIRS "."
+    REQUIRES
+        esp_timer        # High-resolution timer for get_ms()
+        esp_driver_uart  # UART driver APIs
+        esp_netif        # Network interface abstraction
+        esp_event        # Event loop
+        lwip             # TCP/IP stack + PPPoS
+)</code></pre>
+  </div>
+
+  <h3>8.3 Firmware Architecture Block Diagram</h3>
+  <div class="flow" style="max-width:600px;">
+    <div class="flow-node group-title">app_main()</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">esp_netif_init() + esp_event_loop_create_default()</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">modem_uart_init() — configure UART2 pins 16/17</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">modem_enter_ppp_mode() — AT command sequence</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">start_pppos() — create PPPoS session + RX task</div>
+    <div class="flow-arrow">↓ PPP Connected</div>
+    <div class="flow-node">http_post_to_webhook_ip() — DNS → TCP → HTTP POST</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-node">Loop: repeat HTTP POST every 30 seconds</div>
+  </div>
+
+  <h3>8.4 Key Defines</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Define</th><th>Value</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>MODEM_UART_NUM</code></td><td><code>UART_NUM_2</code></td><td>Hardware UART port for modem</td></tr>
+        <tr><td><code>MODEM_TX_PIN</code></td><td><code>17</code></td><td>ESP32 TX → Module RX</td></tr>
+        <tr><td><code>MODEM_RX_PIN</code></td><td><code>16</code></td><td>ESP32 RX ← Module TX</td></tr>
+        <tr><td><code>MODEM_BAUD</code></td><td><code>115200</code></td><td>UART baud rate</td></tr>
+        <tr><td><code>MODEM_APN</code></td><td><code>"airtelgprs.com"</code></td><td>Carrier APN string</td></tr>
+        <tr><td><code>MODEM_NETWORK_TIMEOUT_MS</code></td><td><code>180000</code> (3 min)</td><td>Registration wait timeout</td></tr>
+        <tr><td><code>PPP_CONNECT_TIMEOUT_MS</code></td><td><code>60000</code> (1 min)</td><td>PPPoS connect timeout</td></tr>
+        <tr><td><code>WEBHOOK_HOST</code></td><td><code>"webhook.site"</code></td><td>HTTP POST destination</td></tr>
+        <tr><td><code>POST_BODY</code></td><td><code>"shuva"</code></td><td>HTTP POST body payload</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 9 — ESP32 CODE WALKTHROUGH
+═══════════════════════════════════════════════════════════ -->
+<section id="esp-walkthrough">
+  <h2>9. ESP32 Source Code Walkthrough</h2>
+
+  <h3>9.1 Includes &amp; Global State</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — Headers</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">#include "freertos/FreeRTOS.h"       // FreeRTOS kernel
+#include "freertos/task.h"            // xTaskCreate, vTaskDelay
+#include "freertos/event_groups.h"    // xEventGroupCreate, xEventGroupWaitBits
+#include "esp_log.h"                  // ESP_LOGI, ESP_LOGE, ESP_LOGW
+#include "esp_timer.h"                // esp_timer_get_time() for get_ms()
+#include "driver/uart.h"              // UART driver (uart_write_bytes, uart_read_bytes)
+#include "lwip/dns.h"                 // dns_setserver, dns_getserver
+#include "lwip/sockets.h"             // BSD socket API
+#include "netif/ppp/pppos.h"          // PPPoS (PPP over Serial) library
+#include "netif/ppp/pppapi.h"         // ppp_connect, ppp_set_default
+
+static ppp_pcb *g_ppp = NULL;               // PPP control block (lwIP)
+static struct netif g_ppp_netif;            // Network interface descriptor
+static EventGroupHandle_t g_ppp_event_group; // Signal PPP connected/failed</code></pre>
+  </div>
+  <p>The PPP control block (<code>g_ppp</code>) is the lwIP handle for the PPPoS session. The event group allows the main task to block until PPP is either connected (<code>PPP_CONNECTED_BIT</code>) or failed (<code>PPP_FAILED_BIT</code>).</p>
+
+  <h3>9.2 UART Initialization</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — modem_uart_init()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">static void modem_uart_init(void)
+{
+    uart_config_t uart_config = {
+        .baud_rate  = MODEM_BAUD,          // 115200
+        .data_bits  = UART_DATA_8_BITS,    // 8-bit data
+        .parity     = UART_PARITY_DISABLE, // No parity
+        .stop_bits  = UART_STOP_BITS_1,    // 1 stop bit
+        .flow_ctrl  = UART_HW_FLOWCTRL_DISABLE, // No RTS/CTS
+#if ESP_IDF_VERSION_MAJOR >= 5
+        .source_clk = UART_SCLK_DEFAULT,   // Auto clock source (IDF v5+)
+#endif
+    };
+    // Install UART driver with 4 KB RX and TX buffers
+    ESP_ERROR_CHECK(uart_driver_install(MODEM_UART_NUM, 4096, 4096, 0, NULL, 0));
+    ESP_ERROR_CHECK(uart_param_config(MODEM_UART_NUM, &uart_config));
+    // Map UART2 to GPIO16 (RX) and GPIO17 (TX)
+    ESP_ERROR_CHECK(uart_set_pin(MODEM_UART_NUM, MODEM_TX_PIN, MODEM_RX_PIN,
+                                 UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    ESP_ERROR_CHECK(uart_flush_input(MODEM_UART_NUM)); // Clear stale data
+}</code></pre>
+  </div>
+
+  <h3>9.3 AT Command Engine</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — modem_send_at()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">static bool modem_send_at(const char *cmd, char *resp, size_t resp_size, uint32_t timeout_ms)
+{
+    modem_flush_rx(50);                              // Discard any stale bytes
+    ESP_LOGI(TAG, "MODEM >>> %s", cmd);
+    uart_write_bytes(MODEM_UART_NUM, cmd, strlen(cmd)); // Send command
+    uart_write_bytes(MODEM_UART_NUM, "\r", 1);          // Send CR terminator
+    uart_wait_tx_done(MODEM_UART_NUM, pdMS_TO_TICKS(1000)); // Wait for TX complete
+
+    // modem_wait_response: reads bytes until "OK" or "ERROR" is seen in buffer
+    bool got_token = modem_wait_response(resp, resp_size, timeout_ms,
+                                         "OK", "ERROR", NULL);
+    if (!got_token) {
+        ESP_LOGE(TAG, "Timeout after command: %s", cmd);
+        return false;
+    }
+    return (resp && strstr(resp, "OK")); // true only if response contains "OK"
+}</code></pre>
+  </div>
+
+  <h3>9.4 Network Registration Polling</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — modem_wait_network()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">static bool modem_wait_network(uint32_t timeout_ms)
+{
+    // Polls every MODEM_NETWORK_RETRY_MS (5s) until timeout (3 min)
+    while ((get_ms() - start) < timeout_ms) {
+        modem_send_at("AT+CSQ",    resp, sizeof(resp), 3000); // Signal strength
+        modem_send_at("AT+CREG?",  resp, sizeof(resp), 3000);
+        registered_ok = modem_response_has_reg(resp);          // Check ,1 or ,5
+        modem_send_at("AT+CEREG?", resp, sizeof(resp), 3000);
+        registered_ok |= modem_response_has_reg(resp);
+        modem_send_at("AT+CGATT?", resp, sizeof(resp), 3000);
+        attached_ok = (strstr(resp, "+CGATT: 1") != NULL);
+
+        if (registered_ok && attached_ok) return true;         // Network ready!
+
+        if (registered_ok && !attached_ok)
+            modem_send_at("AT+CGATT=1", resp, sizeof(resp), 15000); // Force attach
+
+        vTaskDelay(pdMS_TO_TICKS(MODEM_NETWORK_RETRY_MS));     // Wait 5 s
+    }
+    return false; // Timeout
+}</code></pre>
+  </div>
+
+  <h3>9.5 PPPoS Callbacks</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — PPPoS output &amp; status callbacks</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">// Called by lwIP when it has PPP data to send — we write it to UART
+static u32_t ppp_output_cb(ppp_pcb *pcb, const void *data, u32_t len, void *ctx)
+{
+    return (u32_t)uart_write_bytes(MODEM_UART_NUM, data, len);
+}
+
+// Called by lwIP when PPP connection state changes
+static void ppp_status_cb(ppp_pcb *pcb, int err_code, void *ctx)
+{
+    switch (err_code) {
+    case PPPERR_NONE:  // Successfully connected
+        ESP_LOGI(TAG, "PPP IP : %s", ip4addr_ntoa(netif_ip4_addr(ppp_netif(pcb))));
+        // Override peer DNS with reliable Google/Cloudflare DNS
+        IP_ADDR4(&dns1, 8, 8, 8, 8);   // Google DNS
+        IP_ADDR4(&dns2, 1, 1, 1, 1);   // Cloudflare DNS
+        dns_setserver(0, &dns1);
+        dns_setserver(1, &dns2);
+        xEventGroupSetBits(g_ppp_event_group, PPP_CONNECTED_BIT);
+        break;
+    case PPPERR_CONNECT:
+    case PPPERR_AUTHFAIL:
+    case PPPERR_PROTOCOL:
+        xEventGroupSetBits(g_ppp_event_group, PPP_FAILED_BIT);
+        break;
+    }
+}</code></pre>
+  </div>
+
+  <h3>9.6 PPP RX Task</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — ppp_rx_task()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">// Dedicated FreeRTOS task at priority 18 — reads raw bytes from UART
+// and feeds them into lwIP's PPPoS parser (pppos_input_tcpip)
+static void ppp_rx_task(void *arg)
+{
+    uint8_t rx_buf[256];
+    while (1) {
+        int len = uart_read_bytes(MODEM_UART_NUM, rx_buf, sizeof(rx_buf),
+                                  pdMS_TO_TICKS(20)); // 20ms timeout
+        if (len > 0 && g_ppp != NULL)
+            pppos_input_tcpip(g_ppp, rx_buf, len); // Hand to lwIP PPPoS engine
+    }
+}</code></pre>
+  </div>
+  <p>This task runs continuously at a high priority (18) to ensure no incoming PPP bytes are missed. <code>pppos_input_tcpip()</code> is thread-safe and posts the received data to the lwIP core for processing via its internal task queue.</p>
+
+  <h3>9.7 app_main() — Entry Point</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">c</span><span class="file">main.c — app_main()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-c">void app_main(void)
+{
+    // 1. Initialize network interface layer and event loop
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    // 2. Initialize UART2 for modem communication
+    modem_uart_init();
+
+    // 3. Run AT command sequence → configure APN → AT+PPPSTART
+    if (!modem_enter_ppp_mode()) {
+        ESP_LOGE(TAG, "Failed to enter PPP mode"); return;
+    }
+
+    // 4. Create PPPoS session + RX task → wait for IP assignment
+    if (!start_pppos()) {
+        ESP_LOGE(TAG, "Failed to start PPPoS"); return;
+    }
+
+    // 5. With IP assigned, send HTTP POST over the cellular link
+    if (!http_post_to_webhook_ip()) {
+        ESP_LOGE(TAG, "First HTTP POST failed"); return;
+    }
+
+    // 6. Repeat HTTP POST every 30 seconds indefinitely
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(30000));
+        http_post_to_webhook_ip();
+    }
+}</code></pre>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 10 — PYTHON CODE WALKTHROUGH
+═══════════════════════════════════════════════════════════ -->
+<section id="python-walkthrough">
+  <h2>10. Python Source Code Walkthrough</h2>
+
+  <h3>10.1 PPP Frame Construction (cavli_generateppp_packets.py)</h3>
+
+  <h4>CRC-16 HDLC FCS</h4>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">python</span><span class="file">cavli_generateppp_packets.py</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-python">def fcs16(data: bytes) -> int:
+    """CRC-16 HDLC FCS — the PPP Frame Check Sequence.
+    
+    Computed over: FF 03 <protocol> <information> (before byte-escaping)
+    Appended little-endian to the frame body before the closing 7E flag.
+    """
+    crc = 0xFFFF
+    for b in data:
+        crc ^= b
+        for _ in range(8):
+            if crc & 1:
+                crc = (crc >> 1) ^ 0x8408  # Reversed polynomial for HDLC
+            else:
+                crc >>= 1
+    return crc ^ 0xFFFF  # Final XOR with 0xFFFF</code></pre>
+  </div>
+
+  <h4>Byte Escaping</h4>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-python">def ppp_escape_byte(b: int) -> bytes:
+    """PPP byte escaping rules:
+    - 0x7E (flag) becomes 7D 5E
+    - 0x7D (escape) becomes 7D 5D
+    - Any byte < 0x20 (control chars) becomes 7D (byte XOR 0x20)
+    - All other bytes are sent as-is
+    """
+    if b == PPP_FLAG or b == PPP_ESCAPE or b < 0x20:
+        return bytes([PPP_ESCAPE, b ^ 0x20])
+    return bytes([b])
+
+def ppp_frame(proto: int, payload: bytes) -> bytes:
+    """Build a complete PPP frame with HDLC framing and FCS."""
+    inner = bytes([0xFF, 0x03]) + struct.pack(">H", proto) + payload
+    crc   = fcs16(inner)
+    raw   = inner + struct.pack("<H", crc)   # FCS appended little-endian
+    escaped = bytearray([PPP_FLAG])           # Opening 7E
+    for b in raw:
+        escaped.extend(ppp_escape_byte(b))    # Escape body + FCS
+    escaped.append(PPP_FLAG)                  # Closing 7E
+    return bytes(escaped)</code></pre>
+  </div>
+
+  <h4>LCP Configure-Request Builder</h4>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-python">def build_lcp_configure_request(magic=0x01234567, mru=1500):
+    # Option 1: MRU (Max Receive Unit) — 4 bytes: type(1) len(1) value(2)
+    opts  = struct.pack(">BBH", 1, 4, mru)
+    # Option 5: Magic Number — 6 bytes: type(1) len(1) value(4)
+    opts += struct.pack(">BBI", 5, 6, magic)
+    # Option 7: Protocol-Field-Compression — 2 bytes
+    opts += struct.pack(">BB", 7, 2)
+    # Option 8: Address-Control-Field-Compression — 2 bytes
+    opts += struct.pack(">BB", 8, 2)
+
+    # LCP header: code(1)=1(Conf-Req) id(1) length(2)
+    payload = struct.pack(">BBH", 1, next_id(), 4 + len(opts)) + opts
+    return ppp_frame(PROTO_LCP, payload)  # Wrap in PPP frame with 0xC021</code></pre>
+  </div>
+
+  <h4>ICMP Echo Request Builder</h4>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">python</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-python">def build_icmp_echo(src_ip, dst_ip, seq=1, payload_str="Cavli-PPP"):
+    data = payload_str.encode()
+
+    # ICMP header: type=8(Echo Req), code=0, checksum=0(placeholder), id=1, seq
+    icmp_hdr = struct.pack(">BBHHH", 8, 0, 0, 1, seq) + data
+    csum = ip_checksum(icmp_hdr)           # Calculate ICMP checksum
+    icmp = struct.pack(">BBHHH", 8, 0, csum, 1, seq) + data  # With real checksum
+
+    src = bytes(map(int, src_ip.split(".")))
+    dst = bytes(map(int, dst_ip.split(".")))
+
+    # IPv4 header: version=4, IHL=5, TOS=0, total_len, id, flags, TTL=64, proto=1(ICMP)
+    iph  = struct.pack(">BBHHHBBH4s4s", 0x45, 0, 20+len(icmp), 1, 0, 64, 1, 0, src, dst)
+    csum2 = ip_checksum(iph)               # Calculate IPv4 header checksum
+    iph  = struct.pack(">BBHHHBBH4s4s", 0x45, 0, 20+len(icmp), 1, 0, 64, 1, csum2, src, dst)
+
+    return ppp_frame(PROTO_IP, iph + icmp) # Wrap IPv4+ICMP in PPP frame (0x0021)</code></pre>
+  </div>
+
+  <h3>10.2 GNSS Monitor Architecture (fetch_gnss.py)</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">python</span><span class="file">fetch_gnss.py — read_loop()</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-python">def read_loop(self):
+    """Background thread: reads NMEA lines from serial port and updates UI."""
+    while self.running:
+        line = self.ser.readline().decode(errors="ignore").strip()
+
+        if line.startswith("$GNRMC"):          # Recommended Minimum (fix + lat/lon)
+            msg = pynmea2.parse(line)
+            if msg.status == "A":              # A = Active fix (GPS locked)
+                self.update_label("Fix",       "VALID FIX")
+                self.update_label("Latitude",  str(msg.latitude))
+                self.update_label("Longitude", str(msg.longitude))
+                self.update_label("UTC Time",  str(msg.timestamp))
+                self.latitude, self.longitude = msg.latitude, msg.longitude
+                # Enable the Google Maps button
+                self.after(0, lambda: self.map_btn.config(state="normal"))
+
+        elif line.startswith("$GNGGA"):        # Fix data (satellites, altitude)
+            msg = pynmea2.parse(line)
+            self.update_label("Satellites", str(msg.num_sats))
+            self.update_label("Altitude",   f"{msg.altitude} {msg.altitude_units}")</code></pre>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 11 — CREATING A NEW PROJECT
+═══════════════════════════════════════════════════════════ -->
+<section id="new-project">
+  <h2>11. Creating a New Project</h2>
+
+  <h3>11.1 Install ESP-IDF</h3>
+  <ol class="steps">
+    <li>
+      <strong>Install prerequisites</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><span class="file">Ubuntu/Debian</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">sudo apt install git wget flex bison gperf python3 python3-venv \
+     python3-pip cmake ninja-build ccache libffi-dev libssl-dev dfu-util</code></pre></div>
+    </li>
+    <li>
+      <strong>Clone ESP-IDF</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">git clone -b v5.3 --recursive https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+cd ~/esp/esp-idf && ./install.sh esp32
+. ~/esp/esp-idf/export.sh   # Add IDF tools to PATH</code></pre></div>
+    </li>
+    <li>
+      <strong>Create a new project</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">cp -r $IDF_PATH/examples/get-started/hello_world ~/my_cavli_project
+cd ~/my_cavli_project
+idf.py set-target esp32</code></pre></div>
+    </li>
+    <li>
+      <strong>Add required CMake dependencies</strong>
+      <p>Edit <code>main/CMakeLists.txt</code> to include the required components:</p>
+      <div class="code-wrap"><div class="code-header"><span class="lang">cmake</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-cmake">idf_component_register(SRCS "main.c"
+    INCLUDE_DIRS "."
+    REQUIRES esp_timer esp_driver_uart esp_netif esp_event lwip)</code></pre></div>
+    </li>
+    <li>
+      <strong>Enable PPPoS in menuconfig</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">idf.py menuconfig
+# Navigate to:
+# Component config → LWIP → Enable PPP support → [*] Enable PPPoS support</code></pre></div>
+    </li>
+    <li>
+      <strong>Copy main.c from this project and customize APN</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">c</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-c">#define MODEM_APN "your.apn.here"     // Change to your carrier APN
+#define WEBHOOK_HOST "your.server.com" // Change to your endpoint
+#define WEBHOOK_PATH "/your/path"
+#define POST_BODY "your payload"</code></pre></div>
+    </li>
+    <li>
+      <strong>Build, flash and monitor</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">idf.py build
+idf.py -p /dev/ttyUSB0 flash monitor</code></pre></div>
+    </li>
+  </ol>
+
+  <h3>11.2 Required Drivers (Windows)</h3>
+  <ul>
+    <li><strong>CP210x</strong> — Silicon Labs USB-to-UART (most ESP32 DevKit boards): <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank">Download</a></li>
+    <li><strong>CH340/CH341</strong> — WCH USB-to-UART (common on clone boards): <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html" target="_blank">Download</a></li>
+  </ul>
+
+  <h3>11.3 Common APN Values by Carrier</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Carrier</th><th>APN String</th><th>Country</th></tr></thead>
+      <tbody>
+        <tr><td>Airtel India</td><td><code>airtelgprs.com</code></td><td>India</td></tr>
+        <tr><td>Jio India</td><td><code>jionet</code></td><td>India</td></tr>
+        <tr><td>T-Mobile USA</td><td><code>fast.t-mobile.com</code></td><td>USA</td></tr>
+        <tr><td>AT&T USA</td><td><code>broadband</code></td><td>USA</td></tr>
+        <tr><td>Vodafone UK</td><td><code>internet</code></td><td>UK</td></tr>
+        <tr><td>Hologram IoT</td><td><code>hologram</code></td><td>Global</td></tr>
+        <tr><td>Twilio Super SIM</td><td><code>super</code></td><td>Global</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 12 — RASPBERRY PI
+═══════════════════════════════════════════════════════════ -->
+<section id="raspberry-pi">
+  <h2>12. Raspberry Pi + Cavli C16QS Integration</h2>
+
+  <h3>12.1 Hardware Setup</h3>
+  <p>The Raspberry Pi GPIO header includes dedicated UART pins. Raspberry Pi 4B uses <code>/dev/ttyAMA0</code> (hardware UART) for the GPIO UART. The wiring follows the same cross-TX/RX principle:</p>
+
+  <div class="wiring">
+    <div class="wire-block">
+      <h4>Raspberry Pi 4B</h4>
+      <div class="pin"><span class="pname">GPIO14 (TXD0)</span><span class="pnum">→</span></div>
+      <div class="pin"><span class="pname">GPIO15 (RXD0)</span><span class="pnum">←</span></div>
+      <div class="pin"><span class="pname">Pin 6 (GND)</span><span class="pnum">—</span></div>
+      <div class="pin"><span class="pname">Pin 2 (5V)</span><span class="pnum">⚡</span></div>
+    </div>
+    <div class="wire-arrow" style="flex-direction:column;font-size:.7rem;color:var(--accent);">
+      <span>── Level</span><span>Shifter ──</span>
+    </div>
+    <div class="wire-block">
+      <h4>Cavli C16QS</h4>
+      <div class="pin"><span class="pnum">←</span><span class="pname">RX</span></div>
+      <div class="pin"><span class="pnum">→</span><span class="pname">TX</span></div>
+      <div class="pin"><span class="pnum">—</span><span class="pname">GND</span></div>
+      <div class="pin"><span class="pnum">←</span><span class="pname">VCC (3.8V)</span></div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body">
+      <strong>Raspberry Pi UART Note</strong>
+      On RPi 4B, the primary UART (<code>/dev/ttyAMA0</code> / <code>/dev/serial0</code>) is mapped to GPIO 14/15. Disable the Bluetooth serial overlay if the hardware UART is being used by Bluetooth. The official Raspberry Pi guide (see the uploaded docx) provides detailed configuration steps.
+    </div>
+  </div>
+
+  <h3>12.2 Raspberry Pi OS — Serial Port Configuration</h3>
+  <ol class="steps">
+    <li>
+      <strong>Enable UART in /boot/config.txt</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">sudo nano /boot/config.txt
+# Add these lines:
+enable_uart=1
+dtoverlay=disable-bt       # Disable Bluetooth to free hardware UART</code></pre></div>
+    </li>
+    <li>
+      <strong>Disable serial console on UART</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">sudo raspi-config
+# → Interface Options → Serial Port
+# "Would you like a login shell..." → No
+# "Would you like serial port hardware enabled..." → Yes
+sudo reboot</code></pre></div>
+    </li>
+    <li>
+      <strong>Install required packages</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">sudo apt update && sudo apt install -y ppp minicom python3-serial</code></pre></div>
+    </li>
+    <li>
+      <strong>Test serial communication with minicom</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">minicom -D /dev/ttyAMA0 -b 115200
+# In minicom, type: AT  → should see: OK
+# Type: AT+CPIN?  → should see: +CPIN: READY
+# Exit: Ctrl+A, then X</code></pre></div>
+    </li>
+  </ol>
+
+  <h3>12.3 PPP Connection via pppd</h3>
+  <p>The Linux <code>pppd</code> daemon handles the full PPP negotiation automatically. Create a PPP peer configuration:</p>
+
+  <ol class="steps">
+    <li>
+      <strong>Create a chat script to initialize the modem</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">sudo nano /etc/ppp/peers/cavli-ppp
+
+# Contents of the peer file:
+/dev/ttyAMA0
+115200
+defaultroute
+persist
+noauth
+debug
+usepeerdns
+connect '/usr/sbin/chat -v -f /etc/ppp/chat-cavli'</code></pre></div>
+    </li>
+    <li>
+      <strong>Create the chat script</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">sudo nano /etc/ppp/chat-cavli
+
+# Contents:
+ABORT "BUSY"
+ABORT "NO CARRIER"
+ABORT "ERROR"
+TIMEOUT 30
+"" AT
+OK ATE0
+OK AT+CMEE=2
+OK AT+CPIN?
+READY AT+CFUN=1
+OK AT+COPS=0
+OK \dAT+CREG=1
+OK AT+CEREG=1
+OK \d\d\d\d\d\dAT+CGDCONT=1,"IP","airtelgprs.com"
+OK AT+CGACT=1,1
+OK AT+PPPSTART
+CONNECT ""</code></pre></div>
+    </li>
+    <li>
+      <strong>Start PPP connection</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">sudo pon cavli-ppp    # Start the PPP connection
+# Monitor: tail -f /var/log/syslog | grep pppd
+# Or: ifconfig ppp0   → shows assigned IP from IPCP</code></pre></div>
+    </li>
+    <li>
+      <strong>Verify internet connectivity</strong>
+      <div class="code-wrap"><div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><code class="language-bash">ifconfig ppp0               # Check PPP interface IP
+ping -I ppp0 8.8.8.8 -c 4  # Ping through PPP interface
+curl --interface ppp0 https://ifconfig.me  # Get external IP
+poff cavli-ppp              # Disconnect when done</code></pre></div>
+    </li>
+  </ol>
+
+  <h3>12.4 Python Script on Raspberry Pi</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">python</span><span class="file">rpi_at_test.py — Basic AT command test</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-python">import serial, time
+
+def send_at(ser, cmd, wait=1):
+    ser.write((cmd + "\r\n").encode())
+    time.sleep(wait)
+    return ser.read_all().decode(errors="ignore")
+
+# Open Raspberry Pi hardware UART
+with serial.Serial("/dev/ttyAMA0", 115200, timeout=2) as ser:
+    print(send_at(ser, "AT"))          # → OK
+    print(send_at(ser, "ATE0"))        # → OK
+    print(send_at(ser, "AT+CPIN?"))    # → +CPIN: READY
+    print(send_at(ser, "AT+CSQ"))      # → +CSQ: 23,0
+    print(send_at(ser, "AT+CEREG?"))   # → +CEREG: 1,1
+    print(send_at(ser, "AT+CGATT?"))   # → +CGATT: 1</code></pre>
+  </div>
+
+  <h3>12.5 Raspberry Pi GNSS with fetch_gnss.py</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-bash">pip3 install pyserial pynmea2
+python3 fetch_gnss.py
+# Select /dev/ttyAMA0 (or /dev/ttyUSB0 if using USB adapter)
+# Click OPEN PORT → START GNSS
+# Wait for GNSS fix (may take 1-5 minutes outdoors with clear sky view)</code></pre>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 13 — TROUBLESHOOTING
+═══════════════════════════════════════════════════════════ -->
+<section id="troubleshoot">
+  <h2>13. Troubleshooting Guide</h2>
+
+  <details>
+    <summary>Module not detected — <code>AT</code> has no response</summary>
+    <div class="det-body">
+      <p><strong>Causes &amp; Solutions:</strong></p>
+      <ul>
+        <li><strong>Wrong COM port</strong> — Check Device Manager (Windows) or <code>ls /dev/tty*</code> (Linux) for the correct port</li>
+        <li><strong>TX/RX not crossed</strong> — Swap the TX and RX connections</li>
+        <li><strong>Wrong baud rate</strong> — Try 9600, 57600, 115200 in sequence</li>
+        <li><strong>No common GND</strong> — Verify GND is shared between ESP32/Pi and module</li>
+        <li><strong>Module not powered</strong> — Check VCC and PWRKEY boot sequence</li>
+        <li><strong>Port still in PPP mode</strong> — Power cycle the module to reset to AT mode</li>
+        <li><strong>Voltage mismatch</strong> — Ensure level shifter is correctly wired (1.8 V ↔ 3.3 V)</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>SIM Card Errors — <code>AT+CPIN?</code> not READY</summary>
+    <div class="det-body">
+      <ul>
+        <li><strong>+CPIN: SIM PIN</strong> — Unlock SIM: <code>AT+CPIN="1234"</code> (use your actual PIN)</li>
+        <li><strong>+CPIN: SIM PUK</strong> — SIM is PUK-locked; contact your carrier</li>
+        <li><strong>ERROR / no response</strong> — SIM not inserted, SIM tray not seated, or SIM voltage incompatibility</li>
+        <li><strong>eSIM</strong> — If using internal eSIM, check firmware provisioning documentation</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>Network Registration Failures — <code>CREG/CEREG</code> never reaches 1 or 5</summary>
+    <div class="det-body">
+      <ul>
+        <li><strong>No or poor signal</strong> — Check <code>AT+CSQ</code>; values 1–30 indicate signal. 99 means no signal. Attach antenna.</li>
+        <li><strong>SIM not activated</strong> — Verify SIM works in a phone first</li>
+        <li><strong>Band mismatch</strong> — Check <code>AT+COPS=?</code> for available operators and supported bands</li>
+        <li><strong>RF disabled</strong> — Send <code>AT+CFUN=1</code> to enable full radio</li>
+        <li><strong>Power droop</strong> — Network attach draws peak current; ensure supply can deliver ≥1.5 A</li>
+        <li>Status 3 (<code>+CREG: 1,3</code>) means registration denied — check SIM and operator compatibility</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>CGATT stays 0 / CGACT fails</summary>
+    <div class="det-body">
+      <ul>
+        <li>Ensure registration is complete first (<code>CREG</code>/<code>CEREG</code> = 1 or 5)</li>
+        <li>Try force-attach: <code>AT+CGATT=1</code></li>
+        <li>Verify APN is correct for your carrier (case-sensitive!)</li>
+        <li>Check SIM has mobile data enabled (may need to enable in carrier app)</li>
+        <li>Wait up to 60 seconds after registration before retrying attach</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>AT+PPPSTART fails or times out</summary>
+    <div class="det-body">
+      <ul>
+        <li>Verify <code>AT+CGACT?</code> returns <code>+CGACT: 1,1</code> before sending PPPSTART</li>
+        <li>PPP must be supported on the AT port in use (some modules use a separate PPP port)</li>
+        <li>Check firmware version — older firmware may use a different command</li>
+        <li>Ensure UART is at 115200 and no flow control is configured</li>
+        <li>Do not send PPP binary data before PPPSTART completes</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>PPP negotiation fails — LCP never completes</summary>
+    <div class="det-body">
+      <ul>
+        <li><strong>FCS incorrect</strong> — Recalculate CRC-16 HDLC over <code>FF 03 proto payload</code> before escaping</li>
+        <li><strong>Byte escaping wrong</strong> — <code>7E</code>→<code>7D 5E</code>, <code>7D</code>→<code>7D 5D</code>, bytes &lt;0x20 also need escaping</li>
+        <li><strong>Sending ASCII hex instead of raw bytes</strong> — serial terminal must send raw binary, not text representation</li>
+        <li><strong>Didn't ACK peer LCP</strong> — When modem sends LCP Configure-Request, host must reply with Configure-Ack</li>
+        <li><strong>Authentication required</strong> — Modem may demand PAP/CHAP; check if server sends Configure-Request with Auth option</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>PPP connected but HTTP POST fails</summary>
+    <div class="det-body">
+      <ul>
+        <li>Check DNS is reachable: <code>ping 8.8.8.8</code> over ppp interface to rule out DNS issues</li>
+        <li>The firmware overrides DNS with <code>8.8.8.8</code> and <code>1.1.1.1</code> — ensure these aren't blocked by your carrier</li>
+        <li>Check socket timeout: increase <code>SO_RCVTIMEO</code> for slow cellular links</li>
+        <li>Check if target server blocks IoT traffic</li>
+        <li>Verify <code>Content-Length</code> matches actual body length</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>GNSS — No Fix / fetch_gnss.py shows "NO FIX"</summary>
+    <div class="det-body">
+      <ul>
+        <li>GNSS requires clear sky view — indoor testing rarely works</li>
+        <li>Cold start can take 2–10 minutes for initial fix (subsequent starts are faster)</li>
+        <li>Verify <code>AT+CGPS=1</code> and <code>AT+GPSPORT=1</code> responded with <code>OK</code></li>
+        <li>Check NMEA data is flowing in the log panel — if empty, check serial port and baud rate</li>
+        <li>Ensure GNSS antenna is connected to the correct U.FL connector (usually labeled GNSS/GPS)</li>
+      </ul>
+    </div>
+  </details>
+
+  <h3>13.1 Quick Diagnostic Checklist</h3>
+  <div class="code-wrap">
+    <div class="code-header"><span class="lang">plaintext</span><span class="file">Pre-flight checklist</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+    <pre><code class="language-plaintext">□ AT returns OK
+□ ATE0 returns OK
+□ AT+CPIN? returns +CPIN: READY
+□ AT+CFUN=1 returns OK
+□ AT+CSQ shows RSSI 1-30 (not 99)
+□ AT+CREG? shows ,1 or ,5
+□ AT+CEREG? shows ,1 or ,5
+□ AT+CGATT? shows +CGATT: 1
+□ AT+CGDCONT=1,"IP","<your-apn>" returns OK
+□ AT+CGACT=1,1 returns OK
+□ AT+CGACT? shows +CGACT: 1,1
+□ AT+PPPSTART returns CONNECT / +PPPSTART
+□ [lwIP] PPP CONNECTED log appears
+□ IP address assigned (not 0.0.0.0)
+□ DNS reachable (8.8.8.8 ping test)</code></pre>
+  </div>
+</section>
+
+<hr/>
+
+<!-- ══════════════════════════════════════════════════════
+     SECTION 14 — REFERENCE
+═══════════════════════════════════════════════════════════ -->
+<section id="reference">
+  <h2>14. AT Command Reference</h2>
+
+  <h3>14.1 General Commands</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command</th><th>Description</th><th>Response</th></tr></thead>
+      <tbody>
+        <tr><td><code>AT</code></td><td>Module alive test</td><td><code>OK</code></td></tr>
+        <tr><td><code>ATE0</code></td><td>Disable echo</td><td><code>OK</code></td></tr>
+        <tr><td><code>ATE1</code></td><td>Enable echo</td><td><code>OK</code></td></tr>
+        <tr><td><code>ATI</code></td><td>Module identification</td><td>Model, revision info</td></tr>
+        <tr><td><code>AT+CMEE=2</code></td><td>Enable verbose errors</td><td><code>OK</code></td></tr>
+        <tr><td><code>AT+CGMI</code></td><td>Manufacturer identification</td><td>Cavli</td></tr>
+        <tr><td><code>AT+CGMM</code></td><td>Model identification</td><td>C16QS</td></tr>
+        <tr><td><code>AT+CGMR</code></td><td>Firmware revision</td><td>Firmware string</td></tr>
+        <tr><td><code>AT+CGSN</code></td><td>IMEI number</td><td>15-digit IMEI</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>14.2 SIM &amp; Radio Commands</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command</th><th>Description</th><th>Key Response Values</th></tr></thead>
+      <tbody>
+        <tr><td><code>AT+CPIN?</code></td><td>SIM status</td><td><code>READY</code>, <code>SIM PIN</code>, <code>SIM PUK</code></td></tr>
+        <tr><td><code>AT+CFUN=1</code></td><td>Full radio functionality</td><td><code>OK</code></td></tr>
+        <tr><td><code>AT+CFUN=0</code></td><td>Minimum functionality (RF off)</td><td><code>OK</code></td></tr>
+        <tr><td><code>AT+CFUN=4</code></td><td>Airplane mode</td><td><code>OK</code></td></tr>
+        <tr><td><code>AT+CSQ</code></td><td>Signal quality (RSSI, BER)</td><td><code>+CSQ: 23,0</code> (0–31, 99=unknown)</td></tr>
+        <tr><td><code>AT+COPS=0</code></td><td>Auto operator selection</td><td><code>OK</code></td></tr>
+        <tr><td><code>AT+COPS?</code></td><td>Current operator</td><td><code>+COPS: 0,0,"Airtel",7</code></td></tr>
+        <tr><td><code>AT+CREG?</code></td><td>Circuit-switched registration</td><td><code>+CREG: 1,1</code> (1=home, 5=roaming)</td></tr>
+        <tr><td><code>AT+CEREG?</code></td><td>LTE/EPS registration</td><td><code>+CEREG: 1,1</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>14.3 Packet Data Commands</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command</th><th>Description</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><code>AT+CGATT?</code></td><td>Packet attach status</td><td><code>+CGATT: 1</code></td></tr>
+        <tr><td><code>AT+CGATT=1</code></td><td>Force packet attach</td><td><code>OK</code></td></tr>
+        <tr><td><code>AT+CGDCONT=1,"IP","apn"</code></td><td>Configure PDP context</td><td>Set APN for context 1</td></tr>
+        <tr><td><code>AT+CGDCONT?</code></td><td>Read PDP context config</td><td><code>+CGDCONT: 1,"IP","airtelgprs.com",...,0</code></td></tr>
+        <tr><td><code>AT+CGACT=1,1</code></td><td>Activate PDP context 1</td><td><code>OK</code></td></tr>
+        <tr><td><code>AT+CGACT?</code></td><td>PDP context status</td><td><code>+CGACT: 1,1</code></td></tr>
+        <tr><td><code>AT+PPPSTART</code></td><td>Start PPP mode on UART</td><td><code>CONNECT</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>14.4 GNSS Commands</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Command</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>AT+CGPS=1</code></td><td>Enable GNSS engine</td></tr>
+        <tr><td><code>AT+CGPS=0</code></td><td>Disable GNSS engine</td></tr>
+        <tr><td><code>AT+CGPS?</code></td><td>Query GNSS status (<code>+CGPS: 1,1</code> = enabled, running)</td></tr>
+        <tr><td><code>AT+GPSPORT=1</code></td><td>Route NMEA output to main serial/UART port</td></tr>
+        <tr><td><code>AT+CGPSINF=0</code></td><td>Query current GPS fix information</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>14.5 Useful Links &amp; Resources</h3>
+  <ul>
+    <li><a href="https://docs.espressif.com/projects/esp-idf/en/stable/esp32/" target="_blank">ESP-IDF Official Documentation</a></li>
+    <li><a href="https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf" target="_blank">ESP32 Technical Reference Manual</a></li>
+    <li><a href="https://savannah.nongnu.org/projects/lwip/" target="_blank">lwIP TCP/IP Stack</a></li>
+    <li><a href="https://tools.ietf.org/html/rfc1661" target="_blank">RFC 1661 — PPP Standard</a></li>
+    <li><a href="https://tools.ietf.org/html/rfc1662" target="_blank">RFC 1662 — PPP in HDLC-like Framing</a></li>
+    <li><a href="https://tools.ietf.org/html/rfc1332" target="_blank">RFC 1332 — PPP IPCP</a></li>
+    <li><a href="https://cavliwireless.com/" target="_blank">Cavli Wireless Official Website</a></li>
+  </ul>
+
+  <div class="callout success">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body">
+      <strong>You're ready to build!</strong>
+      This guide covers the complete journey from hardware wiring through AT command initialization, PPP/PPPoS cellular data connectivity, HTTP POST, GNSS tracking, Python diagnostic tools, and Raspberry Pi integration. For questions or hardware-specific issues, refer to the Cavli C16QS official AT command manual and the ESP-IDF documentation.
+    </div>
+  </div>
+</section>
+
+</main><!-- end #main -->
+
+<!-- ─── SCRIPTS ────────────────────────────────────────── -->
+<script>
+// Syntax highlight
+document.addEventListener("DOMContentLoaded", () => {
+  hljs.highlightAll();
+  initSearch();
+  highlightActive();
+});
+
+// Theme toggle
+function toggleTheme() {
+  const body = document.body;
+  const btn = document.getElementById("theme-toggle");
+  if (body.dataset.theme === "light") {
+    delete body.dataset.theme;
+    btn.textContent = "☀ Light";
+  } else {
+    body.dataset.theme = "light";
+    btn.textContent = "🌙 Dark";
+  }
+}
+
+// Sidebar toggle (mobile)
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+}
+
+// Copy to clipboard
+function copyCode(btn) {
+  const pre = btn.closest(".code-wrap").querySelector("code");
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = "✓ Copied";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 2000);
+  });
+}
+
+// Highlight active nav link on scroll
+function highlightActive() {
+  const sections = document.querySelectorAll("section[id]");
+  const links = document.querySelectorAll(".nav-link");
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove("active"));
+        const active = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+        if (active) active.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-20% 0px -70% 0px" });
+  sections.forEach(s => observer.observe(s));
+}
+
+// Search functionality
+const searchIndex = [
+  {title:"Introduction — ESP32 & Cavli C16QS",href:"#introduction",keywords:"introduction overview esp32 c16qs iot lte cellular"},
+  {title:"Hardware Overview — Pins & Power",href:"#hardware",keywords:"hardware uart gpio pin power voltage level shifter wiring"},
+  {title:"Interfacing — UART Wiring",href:"#interfacing",keywords:"interfacing wiring connection uart gpio17 gpio16 tx rx gnd"},
+  {title:"AT Commands — Full Sequence",href:"#at-commands",keywords:"at commands ate0 cpin cfun cops creg cereg cgatt cgdcont cgact pppstart"},
+  {title:"Ping Requests — ICMP over PPP",href:"#ping",keywords:"ping icmp ppp lcp ipcp echo request packet"},
+  {title:"Data Communication — HTTP POST",href:"#data",keywords:"http post get tcp udp socket webhook dns data"},
+  {title:"Python Tools — PPP & GNSS",href:"#python-tools",keywords:"python tkinter gui ppp gnss nmea serial tool"},
+  {title:"ESP32 Project Architecture",href:"#project",keywords:"project cmake folder structure app_main architecture"},
+  {title:"ESP32 Code Walkthrough",href:"#esp-walkthrough",keywords:"source code walkthrough uart init ppp rx task pppos"},
+  {title:"Python Code Walkthrough",href:"#python-walkthrough",keywords:"python code fcs16 frame builder lcp ipcp icmp gnss nmea"},
+  {title:"Creating a New Project",href:"#new-project",keywords:"new project esp-idf install menuconfig cmake build flash"},
+  {title:"Raspberry Pi Integration",href:"#raspberry-pi",keywords:"raspberry pi pppd chat script ttyama0 linux uart gnss"},
+  {title:"Troubleshooting Guide",href:"#troubleshoot",keywords:"troubleshoot error no response sim network registration ppp fail"},
+  {title:"AT Command Reference",href:"#reference",keywords:"reference commands csq creg cereg cgps cgatt cgact pppstart"}
+];
+
+function initSearch() {
+  const input = document.getElementById("search-input");
+  const results = document.getElementById("search-results");
+  input.addEventListener("focus", () => { if (input.value.trim()) results.style.display = "block"; });
+}
+
+function doSearch(query) {
+  const results = document.getElementById("search-results");
+  if (!query.trim()) { results.style.display = "none"; return; }
+  const q = query.toLowerCase();
+  const matches = searchIndex.filter(item =>
+    item.title.toLowerCase().includes(q) || item.keywords.includes(q)
+  );
+  if (matches.length === 0) { results.innerHTML = '<a href="#">No results found</a>'; results.style.display = "block"; return; }
+  results.innerHTML = matches.map(m => `<a href="${m.href}">${m.title}</a>`).join("");
+  results.style.display = "block";
+  results.querySelectorAll("a").forEach(a => a.addEventListener("click", () => {
+    results.style.display = "none";
+    document.getElementById("search-input").value = "";
+  }));
+}
+</script>
+</body>
+</html>

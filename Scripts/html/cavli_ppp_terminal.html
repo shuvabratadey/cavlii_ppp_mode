@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cavli C16QS — PPP Terminal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+:root {
+  --bg:         #0a0d14;
+  --bg2:        #0f1520;
+  --bg3:        #151d2e;
+  --panel:      #111827;
+  --border:     #1e2d45;
+  --border2:    #253654;
+  --accent:     #00d4ff;
+  --accent2:    #0099cc;
+  --green:      #00ff88;
+  --green2:     #00c46a;
+  --amber:      #ffb300;
+  --red:        #ff4757;
+  --purple:     #a78bfa;
+  --text:       #e2e8f0;
+  --text2:      #94a3b8;
+  --text3:      #4a6080;
+  --tx-color:   #00d4ff;
+  --rx-color:   #00ff88;
+  --mono:       'JetBrains Mono', monospace;
+  --sans:       'Syne', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── Top bar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+}
+.topbar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.4;
+}
+.logo {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.logo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.8)} }
+
+.port-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.port-row label { color: var(--text3); font-size: 11px; white-space: nowrap; }
+
+select, input[type=text], input[type=number] {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  outline: none;
+  transition: border-color .2s;
+}
+select:focus, input:focus { border-color: var(--accent); }
+select { cursor: pointer; }
+
+.btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  padding: 6px 14px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  transition: all .15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(.96); }
+.btn-accent   { background: var(--accent);  color: #000; }
+.btn-accent:hover   { background: #33ddff; }
+.btn-green    { background: var(--green);   color: #000; }
+.btn-green:hover    { background: #33ffaa; }
+.btn-red      { background: var(--red);     color: #fff; }
+.btn-red:hover      { background: #ff6b77; }
+.btn-outline  { background: transparent; border: 1px solid var(--border2); color: var(--text2); }
+.btn-outline:hover  { border-color: var(--accent); color: var(--accent); }
+.btn-amber    { background: var(--amber);   color: #000; }
+.btn-amber:hover    { background: #ffca40; }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-pill.disconnected { border-color: var(--red);   color: var(--red);   }
+.status-pill.connected    { border-color: var(--green); color: var(--green); }
+.status-pill.ppp          { border-color: var(--accent);color: var(--accent);}
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status-pill.connected .status-dot { animation: pulse 1.5s infinite; }
+.status-pill.ppp       .status-dot { animation: pulse 1s infinite; }
+
+/* ── Mode tabs ── */
+.mode-tabs {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 2px;
+  background: var(--bg3);
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.mode-tab {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text3);
+  transition: all .15s;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.mode-tab.active { background: var(--accent); color: #000; }
+.mode-tab:hover:not(.active) { color: var(--text); }
+
+/* ── Main layout ── */
+.main {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  grid-template-rows: 1fr;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* ── Left: Steps panel ── */
+.steps-panel {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.steps-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px;
+}
+.steps-list::-webkit-scrollbar { width: 4px; }
+.steps-list::-webkit-scrollbar-track { background: transparent; }
+.steps-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 7px;
+  margin-bottom: 3px;
+  cursor: pointer;
+  transition: background .15s;
+  border: 1px solid transparent;
+}
+.step-item:hover { background: var(--bg3); }
+.step-item.active { background: rgba(0,212,255,.07); border-color: rgba(0,212,255,.2); }
+.step-item.done   { opacity: .6; }
+.step-item.done .step-num { background: var(--green); color: #000; }
+.step-item.error  { background: rgba(255,71,87,.05); border-color: rgba(255,71,87,.2); }
+
+.step-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: var(--text3);
+  transition: all .2s;
+}
+.step-item.active .step-num { background: var(--accent); color: #000; border-color: var(--accent); }
+.step-item.done .step-num::after { content: '✓'; }
+.step-item.done .step-num { font-size: 0; }
+.step-info { flex: 1; min-width: 0; }
+.step-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-cmd {
+  font-size: 10px;
+  color: var(--accent);
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-phase {
+  font-size: 9px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-top: 1px;
+}
+
+.phase-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 4px 0 2px;
+}
+.phase-divider span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text3);
+  white-space: nowrap;
+}
+.phase-divider::before, .phase-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Center: Terminal ── */
+.terminal-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+.terminal-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  background: var(--bg2);
+}
+.terminal-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.terminal-area::-webkit-scrollbar { width: 4px; }
+.terminal-area::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.log-line {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 2px 0;
+  animation: fadeIn .15s ease;
+}
+@keyframes fadeIn { from {opacity:0;transform:translateY(2px)} to {opacity:1;transform:none} }
+.log-ts { color: var(--text3); font-size: 10px; white-space: nowrap; flex-shrink: 0; margin-top: 2px; }
+.log-dir {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+  padding: 0 5px;
+  border-radius: 3px;
+}
+.log-dir.tx { background: rgba(0,212,255,.15); color: var(--tx-color); }
+.log-dir.rx { background: rgba(0,255,136,.15); color: var(--rx-color); }
+.log-dir.info { background: rgba(167,139,250,.15); color: var(--purple); }
+.log-dir.warn { background: rgba(255,179,0,.15); color: var(--amber); }
+.log-dir.err  { background: rgba(255,71,87,.15);  color: var(--red); }
+.log-content { flex: 1; color: var(--text); word-break: break-all; }
+.log-content .hex { color: var(--accent); }
+.log-content .ascii { color: var(--text2); }
+.log-content b { color: var(--green); }
+
+.terminal-input-row {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--bg2);
+}
+.terminal-input {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 5px;
+  outline: none;
+}
+.terminal-input:focus { border-color: var(--accent); }
+.terminal-input::placeholder { color: var(--text3); }
+
+/* Next packet card */
+.next-packet-row {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.next-packet-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+.next-packet-display {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  min-height: 36px;
+  word-break: break-all;
+}
+.next-packet-display .byte-group {
+  display: inline-block;
+  padding: 1px 3px;
+  border-radius: 2px;
+  margin: 1px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.bg-flag   { background: rgba(255,179,0,.2);   color: var(--amber);  }
+.bg-header { background: rgba(0,212,255,.15);  color: var(--accent); }
+.bg-proto  { background: rgba(167,139,250,.2); color: var(--purple); }
+.bg-lcp    { background: rgba(0,255,136,.15);  color: var(--green);  }
+.bg-data   { background: rgba(255,255,255,.05);color: var(--text2);  }
+.bg-fcs    { background: rgba(255,71,87,.15);  color: var(--red);    }
+
+.send-row { display: flex; gap: 8px; align-items: center; }
+.auto-speed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text3);
+}
+.auto-speed input[type=range] { width: 80px; accent-color: var(--accent); cursor: pointer; }
+
+/* ── Right: Decoder panel ── */
+.decoder-panel {
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.decoder-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+.decoder-content::-webkit-scrollbar { width: 4px; }
+.decoder-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.decode-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  animation: fadeIn .2s ease;
+}
+.decode-card-header {
+  padding: 8px 12px;
+  background: rgba(0,0,0,.2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.decode-card-title {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+}
+.decode-card-title.tx { color: var(--tx-color); }
+.decode-card-title.rx { color: var(--rx-color); }
+.decode-ts { font-size: 10px; color: var(--text3); }
+.decode-fields { padding: 10px 12px; }
+.decode-field {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 4px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+  font-size: 11px;
+}
+.decode-field:last-child { border-bottom: none; }
+.decode-field-name { color: var(--text3); }
+.decode-field-val  { color: var(--text); word-break: break-all; }
+.decode-field-val .highlight { color: var(--accent); font-weight: 600; }
+.decode-field-val .good  { color: var(--green); }
+.decode-field-val .warn  { color: var(--amber); }
+.decode-field-val .err   { color: var(--red); }
+.decode-meaning {
+  margin: 6px 12px 10px;
+  padding: 8px 10px;
+  background: rgba(0,212,255,.05);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 5px 5px 0;
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ── Ping stats ── */
+.ping-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.stat-box {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+.stat-val { font-size: 18px; font-weight: 700; color: var(--accent); font-family: var(--sans); }
+.stat-lbl { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
+
+/* ── Ping config ── */
+.ping-config {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.ping-config label { font-size: 10px; color: var(--text3); display: block; margin-bottom: 2px; }
+.ping-config input { width: 100%; }
+
+/* Progress bar */
+.progress-bar-wrap {
+  height: 2px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  width: 0%;
+  transition: width .3s ease;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.badge-at   { background: rgba(255,179,0,.2); color: var(--amber); }
+.badge-lcp  { background: rgba(0,212,255,.2); color: var(--accent); }
+.badge-pap  { background: rgba(167,139,250,.2); color: var(--purple); }
+.badge-ipcp { background: rgba(0,255,136,.2); color: var(--green); }
+.badge-icmp { background: rgba(255,71,87,.2); color: var(--red); }
+
+/* Tooltip */
+[title] { cursor: help; }
+
+/* Scroll to bottom btn */
+.scroll-btn {
+  position: absolute;
+  bottom: 220px;
+  right: 340px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+.scroll-btn.visible { opacity: 1; pointer-events: all; }
+
+/* Auto mode overlay */
+.auto-indicator {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background: rgba(0,255,136,.1);
+  border: 1px solid rgba(0,255,136,.3);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 600;
+}
+.auto-indicator.visible { display: flex; }
+.auto-spin {
+  width: 8px; height: 8px;
+  border: 2px solid var(--green);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Serial not supported notice */
+.no-serial {
+  position: fixed; inset: 0;
+  background: rgba(10,13,20,.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  gap: 16px;
+  backdrop-filter: blur(4px);
+}
+.no-serial h2 { font-family: var(--sans); color: var(--amber); font-size: 20px; }
+.no-serial p  { color: var(--text2); max-width: 420px; text-align: center; line-height: 1.6; font-size: 13px; }
+.no-serial code { background: var(--bg3); padding: 2px 8px; border-radius: 4px; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- No Serial API notice -->
+<div class="no-serial" id="noSerialOverlay" style="display:none">
+  <div style="font-size:40px">⚠️</div>
+  <h2>Web Serial API Not Available</h2>
+  <p>This tool requires the <strong>Web Serial API</strong>. Please open it in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (version 89+). Make sure you're not in a sandboxed iframe.</p>
+  <p>Enable via: <code>chrome://flags/#enable-experimental-web-platform-features</code></p>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    CAVLI C16QS PPP TERMINAL
+  </div>
+
+  <div class="port-row">
+    <label>BAUD</label>
+    <select id="baudSelect" style="width:100px">
+      <option>115200</option>
+      <option>9600</option>
+      <option>57600</option>
+      <option>38400</option>
+    </select>
+
+    <button class="btn btn-accent" id="connectBtn" onclick="toggleConnect()">CONNECT PORT</button>
+    <button class="btn btn-red" id="disconnectBtn" onclick="disconnect()" style="display:none">DISCONNECT</button>
+
+    <div class="status-pill disconnected" id="statusPill">
+      <div class="status-dot"></div>
+      <span id="statusText">Disconnected</span>
+    </div>
+
+    <div class="auto-indicator" id="autoIndicator">
+      <div class="auto-spin"></div>
+      AUTO MODE RUNNING
+    </div>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="setMode('manual')">Manual</button>
+    <button class="mode-tab" onclick="setMode('auto')">Auto</button>
+  </div>
+</div>
+
+<div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Left: Steps -->
+  <div class="steps-panel">
+    <div class="panel-header">
+      <span class="panel-title">PPP Sequence</span>
+      <button class="btn btn-outline" style="font-size:10px;padding:3px 8px" onclick="resetSteps()">RESET</button>
+    </div>
+    <div class="steps-list" id="stepsList"></div>
+  </div>
+
+  <!-- Center: Terminal -->
+  <div class="terminal-panel">
+    <div class="terminal-header">
+      <span style="font-size:10px;color:var(--text3);font-weight:700;letter-spacing:1px;text-transform:uppercase">Terminal</span>
+      <button class="btn btn-outline" style="font-size:10px;padding:3px 8px;margin-left:auto" onclick="clearTerminal()">CLEAR</button>
+      <label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="hexView" onchange="toggleHexView()"> HEX VIEW
+      </label>
+    </div>
+
+    <div class="terminal-area" id="terminalArea"></div>
+
+    <div class="next-packet-row">
+      <div class="next-packet-label">Next Packet to Send</div>
+      <div class="next-packet-display" id="nextPacketDisplay">
+        <span style="color:var(--text3);font-size:11px">— waiting for connection —</span>
+      </div>
+      <div class="send-row">
+        <button class="btn btn-green" id="sendBtn" onclick="sendCurrentStep()" disabled>▶ SEND</button>
+        <button class="btn btn-amber" id="autoBtn" onclick="toggleAuto()">⚡ AUTO</button>
+        <button class="btn btn-outline" onclick="skipStep()">SKIP</button>
+        <div class="auto-speed">
+          DELAY <input type="range" id="autoDelay" min="100" max="3000" value="800" step="100"> <span id="delayVal">0.8s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual input row -->
+    <div class="terminal-input-row">
+      <input class="terminal-input" id="manualInput" placeholder="Type AT command or hex bytes (e.g. AT or 7E FF 03 ...)" onkeydown="handleManualKey(event)">
+      <button class="btn btn-outline" onclick="sendManual()">SEND RAW</button>
+    </div>
+  </div>
+
+  <!-- Right: Decoder -->
+  <div class="decoder-panel">
+    <div class="panel-header">
+      <span class="panel-title">Packet Decoder</span>
+      <button class="btn btn-outline" style="font-size:10px;padding:3px 8px" onclick="clearDecoder()">CLEAR</button>
+    </div>
+
+    <!-- Ping config -->
+    <div class="ping-config">
+      <div>
+        <label>Target Host / IP</label>
+        <input type="text" id="pingTarget" value="8.8.8.8" style="width:100%">
+      </div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:1">
+          <label>Ping Count</label>
+          <input type="number" id="pingCount" value="4" min="1" max="100" style="width:100%">
+        </div>
+        <div style="flex:1">
+          <label>TTL</label>
+          <input type="number" id="pingTTL" value="64" min="1" max="255" style="width:100%">
+        </div>
+      </div>
+    </div>
+
+    <div class="decoder-content" id="decoderContent">
+      <div style="text-align:center;color:var(--text3);padding:30px 10px;font-size:11px">
+        Decoded packets will appear here<br>after each send/receive exchange
+      </div>
+    </div>
+
+    <div class="ping-stats">
+      <div class="stat-box">
+        <div class="stat-val" id="statSent">0</div>
+        <div class="stat-lbl">Sent</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statRecv" style="color:var(--green)">0</div>
+        <div class="stat-lbl">Replies</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statRTT" style="color:var(--amber)">—</div>
+        <div class="stat-lbl">RTT ms</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════
+let port = null, reader = null, writer = null;
+let connected = false;
+let pppMode = false;
+let currentStep = 0;
+let autoMode = false;
+let autoTimer = null;
+let hexView = false;
+let mode = 'manual';
+let pingSeq = 1;
+let assignedIP = null;
+let modemMagic = null;
+let statSent = 0, statRecv = 0;
+let rtts = [];
+let rxBuffer = new Uint8Array(0);
+let lcpIdCounter = 1;
+let sendTime = 0;
+
+// PAP credentials (most LTE modems don't need these)
+const PAP_USER = '';
+const PAP_PASS = '';
+
+// ═══════════════════════════════════════════════════════════════════
+//  STEPS DEFINITION
+// ═══════════════════════════════════════════════════════════════════
+const STEPS = [
+  // ── AT Phase ──
+  { id:'at_check',  phase:'AT Commands', label:'Modem Alive',      cmd:'AT',                                badge:'at',   desc:'Check modem responds',         expect:'OK' },
+  { id:'at_cimi',   phase:'AT Commands', label:'Query IMSI',        cmd:'AT+CIMI',                           badge:'at',   desc:'Read SIM IMSI number',          expect:'IMSI' },
+  { id:'at_creg',   phase:'AT Commands', label:'Network Reg',       cmd:'AT+CREG?',                          badge:'at',   desc:'Check network registration',    expect:'+CREG' },
+  { id:'at_csq',    phase:'AT Commands', label:'Signal Quality',    cmd:'AT+CSQ',                            badge:'at',   desc:'Read signal quality (RSSI)',    expect:'+CSQ' },
+  { id:'at_cgdcont',phase:'AT Commands', label:'Set APN',           cmd:'AT+CGDCONT=1,"IP","internet"',      badge:'at',   desc:'Configure PDP context / APN',   expect:'OK' },
+  { id:'at_cgact',  phase:'AT Commands', label:'Activate PDP',      cmd:'AT+CGACT=1,1',                      badge:'at',   desc:'Activate PDP context',          expect:'OK' },
+  { id:'at_dial',   phase:'AT Commands', label:'Dial PPP',          cmd:'ATD*99***1#',                       badge:'at',   desc:'Enter PPP data mode',           expect:'CONNECT' },
+  // ── LCP Phase ──
+  { id:'lcp_req',   phase:'LCP',         label:'LCP Conf-Req',      cmd:'[LCP Configure-Request]',           badge:'lcp',  desc:'Negotiate link parameters',     expect:'LCP' },
+  { id:'lcp_ack',   phase:'LCP',         label:'LCP Conf-Ack',      cmd:'[LCP Configure-Ack]',               badge:'lcp',  desc:'Acknowledge modem LCP options', expect:'LCP-ACK' },
+  // ── IPCP Phase ──
+  { id:'ipcp_req1', phase:'IPCP',        label:'IPCP Req (0.0.0.0)',cmd:'[IPCP Conf-Req 0.0.0.0]',          badge:'ipcp', desc:'Request IP assignment',         expect:'IPCP-NAK' },
+  { id:'ipcp_req2', phase:'IPCP',        label:'IPCP Req (real IP)',cmd:'[IPCP Conf-Req real IP]',           badge:'ipcp', desc:'Confirm assigned IP',           expect:'IPCP-ACK' },
+  // ── ICMP Phase ──
+  { id:'icmp_ping', phase:'ICMP Ping',   label:'ICMP Echo-Request', cmd:'[ICMP Ping → target]',              badge:'icmp', desc:'Send ping to target host',      expect:'ICMP-REPLY' },
+];
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  if (!('serial' in navigator)) {
+    document.getElementById('noSerialOverlay').style.display = 'flex';
+  }
+  buildStepsList();
+  document.getElementById('autoDelay').addEventListener('input', function() {
+    document.getElementById('delayVal').textContent = (this.value/1000).toFixed(1)+'s';
+  });
+  updateNextPacket();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  STEPS UI
+// ═══════════════════════════════════════════════════════════════════
+function buildStepsList() {
+  const list = document.getElementById('stepsList');
+  list.innerHTML = '';
+  let lastPhase = '';
+  STEPS.forEach((s, i) => {
+    if (s.phase !== lastPhase) {
+      const div = document.createElement('div');
+      div.className = 'phase-divider';
+      div.innerHTML = `<span>${s.phase}</span>`;
+      list.appendChild(div);
+      lastPhase = s.phase;
+    }
+    const item = document.createElement('div');
+    item.className = 'step-item' + (i === currentStep ? ' active' : '');
+    item.id = `step_${i}`;
+    item.onclick = () => jumpToStep(i);
+    item.innerHTML = `
+      <div class="step-num">${i+1}</div>
+      <div class="step-info">
+        <div class="step-label">${s.label} <span class="badge badge-${s.badge}">${s.badge.toUpperCase()}</span></div>
+        <div class="step-cmd">${s.cmd}</div>
+        <div class="step-phase">${s.desc}</div>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+function updateStepUI() {
+  STEPS.forEach((s, i) => {
+    const el = document.getElementById(`step_${i}`);
+    if (!el) return;
+    el.className = 'step-item';
+    if (i < currentStep) el.classList.add('done');
+    else if (i === currentStep) el.classList.add('active');
+  });
+  const pct = Math.round((currentStep / STEPS.length) * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  // scroll active into view
+  const active = document.querySelector('.step-item.active');
+  if (active) active.scrollIntoView({ block:'nearest', behavior:'smooth' });
+}
+
+function jumpToStep(i) {
+  if (!connected) return;
+  currentStep = i;
+  updateStepUI();
+  updateNextPacket();
+}
+
+function skipStep() {
+  if (currentStep < STEPS.length - 1) { currentStep++; updateStepUI(); updateNextPacket(); }
+}
+
+function resetSteps() {
+  currentStep = 0;
+  pingSeq = 1;
+  assignedIP = null;
+  modemMagic = null;
+  pppMode = false;
+  statSent = 0; statRecv = 0; rtts = [];
+  updateStats();
+  setStatus('connected');
+  updateStepUI();
+  updateNextPacket();
+  logInfo('Steps reset to beginning.');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SERIAL CONNECTION
+// ═══════════════════════════════════════════════════════════════════
+async function toggleConnect() {
+  if (!('serial' in navigator)) { alert('Web Serial API not supported. Use Chrome/Edge.'); return; }
+  try {
+    port = await navigator.serial.requestPort();
+    const baud = parseInt(document.getElementById('baudSelect').value);
+    await port.open({ baudRate: baud, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' });
+    connected = true;
+    writer = port.writable.getWriter();
+    document.getElementById('connectBtn').style.display = 'none';
+    document.getElementById('disconnectBtn').style.display = '';
+    document.getElementById('sendBtn').disabled = false;
+    setStatus('connected');
+    logInfo(`Connected at ${baud} baud`);
+    updateNextPacket();
+    startReading();
+  } catch(e) {
+    if (e.name !== 'NotFoundError') logError('Connect failed: ' + e.message);
+  }
+}
+
+async function disconnect() {
+  stopAuto();
+  if (reader) { try { await reader.cancel(); } catch(e){} reader = null; }
+  if (writer) { try { writer.releaseLock(); } catch(e){} writer = null; }
+  if (port)   { try { await port.close(); } catch(e){} port = null; }
+  connected = false; pppMode = false;
+  document.getElementById('connectBtn').style.display = '';
+  document.getElementById('disconnectBtn').style.display = 'none';
+  document.getElementById('sendBtn').disabled = true;
+  setStatus('disconnected');
+  logInfo('Disconnected');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  READ LOOP
+// ═══════════════════════════════════════════════════════════════════
+async function startReading() {
+  while (port && port.readable) {
+    try {
+      reader = port.readable.getReader();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        handleRx(value);
+      }
+    } catch(e) {
+      if (connected) logError('Read error: ' + e.message);
+      break;
+    } finally {
+      if (reader) { reader.releaseLock(); reader = null; }
+    }
+  }
+}
+
+function handleRx(bytes) {
+  // Append to buffer
+  const newBuf = new Uint8Array(rxBuffer.length + bytes.length);
+  newBuf.set(rxBuffer); newBuf.set(bytes, rxBuffer.length);
+  rxBuffer = newBuf;
+
+  if (pppMode) {
+    extractPPPFrames();
+  } else {
+    // AT mode: look for line endings
+    let str = '';
+    try { str = new TextDecoder().decode(rxBuffer); } catch(e) {}
+    const lines = str.split(/\r\n|\n|\r/);
+    if (lines.length > 1) {
+      const complete = lines.slice(0, -1);
+      const leftover = lines[lines.length - 1];
+      rxBuffer = new TextEncoder().encode(leftover);
+      complete.forEach(line => {
+        if (line.trim()) {
+          const rtt = Date.now() - sendTime;
+          logRx(line, false);
+          decodeATResponse(line, rtt);
+          handleATReply(line);
+        }
+      });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PPP FRAME EXTRACTION
+// ═══════════════════════════════════════════════════════════════════
+function extractPPPFrames() {
+  while (true) {
+    // Find start flag
+    let start = -1;
+    for (let i = 0; i < rxBuffer.length; i++) {
+      if (rxBuffer[i] === 0x7E) { start = i; break; }
+    }
+    if (start === -1) { rxBuffer = new Uint8Array(0); return; }
+
+    // Find end flag
+    let end = -1;
+    for (let i = start + 1; i < rxBuffer.length; i++) {
+      if (rxBuffer[i] === 0x7E) { end = i; break; }
+    }
+    if (end === -1) { rxBuffer = rxBuffer.slice(start); return; }
+
+    // Extract frame
+    const rawFrame = rxBuffer.slice(start + 1, end);
+    rxBuffer = rxBuffer.slice(end);  // keep from end flag onwards (it's next start)
+
+    if (rawFrame.length < 4) continue;
+
+    // Destuff
+    const frame = pppDestuff(rawFrame);
+    if (frame.length < 4) continue;
+
+    // Verify FCS
+    if (!verifyFCS(frame)) { logWarn('FCS error — frame discarded'); continue; }
+
+    const payload = frame.slice(0, frame.length - 2);
+    const rtt = Date.now() - sendTime;
+    logRx(bytesToHex(payload), true);
+    decodePPPFrame(payload, rtt);
+    handlePPPReply(payload);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  AT REPLY HANDLER
+// ═══════════════════════════════════════════════════════════════════
+function handleATReply(line) {
+  const step = STEPS[currentStep];
+  if (!step) return;
+  const upper = line.toUpperCase().trim();
+
+  if (step.id === 'at_cgdcont') {
+    // Update APN from input
+  }
+
+  if (upper === 'CONNECT' || upper.startsWith('CONNECT ')) {
+    pppMode = true;
+    setStatus('ppp');
+    logInfo('PPP mode activated — switching to binary framing');
+    if (autoMode) scheduleNextStep();
+    else { currentStep++; updateStepUI(); updateNextPacket(); }
+    return;
+  }
+
+  if (upper === 'OK' || upper.includes('+CREG') || upper.includes('+CSQ') || upper.includes('+CGDCONT') || /^\d{15}$/.test(upper)) {
+    if (autoMode) scheduleNextStep();
+    else { currentStep++; updateStepUI(); updateNextPacket(); }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PPP REPLY HANDLER
+// ═══════════════════════════════════════════════════════════════════
+function handlePPPReply(frame) {
+  if (frame.length < 4) return;
+  // frame: FF 03 proto_hi proto_lo ...
+  const proto = (frame[2] << 8) | frame[3];
+  const payload = frame.slice(4);
+  const step = STEPS[currentStep];
+
+  if (proto === 0xC021) {  // LCP
+    const code = payload[0];
+    if (code === 0x01) {  // Configure-Request from modem
+      // Save modem's magic if present
+      modemMagic = extractLCPMagic(payload.slice(4));
+      logInfo('Modem LCP Conf-Req received — will send Ack');
+      if (autoMode) scheduleNextStep();
+      else { currentStep = STEPS.findIndex(s=>s.id==='lcp_ack'); updateStepUI(); updateNextPacket(); }
+    } else if (code === 0x02) {  // Configure-Ack
+      logInfo('LCP Conf-Ack received — LCP is UP');
+      if (autoMode) scheduleNextStep();
+      else { currentStep = STEPS.findIndex(s=>s.id==='ipcp_req1'); updateStepUI(); updateNextPacket(); }
+    } else if (code === 0x09) {  // Echo-Request — respond
+      sendLCPEchoReply(payload);
+    }
+  } else if (proto === 0x8021) {  // IPCP
+    const code = payload[0];
+    if (code === 0x03) {  // Nak — extract IP
+      assignedIP = extractIPCPAddress(payload.slice(4));
+      logInfo(`IPCP Nak — assigned IP: ${assignedIP ? assignedIP.join('.') : 'unknown'}`);
+      if (autoMode) scheduleNextStep();
+      else { currentStep = STEPS.findIndex(s=>s.id==='ipcp_req2'); updateStepUI(); updateNextPacket(); }
+    } else if (code === 0x02) {  // Ack
+      logInfo('IPCP Conf-Ack — IP layer UP! Ready to ping.');
+      if (autoMode) scheduleNextStep();
+      else { currentStep = STEPS.findIndex(s=>s.id==='icmp_ping'); updateStepUI(); updateNextPacket(); }
+    }
+  } else if (proto === 0x0021) {  // IPv4 (ICMP reply)
+    if (frame.length >= 24 + 4) {
+      const icmpType = frame[4 + 20];
+      if (icmpType === 0) {  // Echo-Reply
+        const rtt = Date.now() - sendTime;
+        statRecv++;
+        rtts.push(rtt);
+        updateStats();
+        logInfo(`Ping reply! RTT=${rtt}ms, seq=${pingSeq-1}`);
+        // Queue next ping
+        if (autoMode && pingSeq <= parseInt(document.getElementById('pingCount').value)) {
+          scheduleNextStep();
+        }
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SEND CURRENT STEP
+// ═══════════════════════════════════════════════════════════════════
+async function sendCurrentStep() {
+  if (!connected || currentStep >= STEPS.length) return;
+  const step = STEPS[currentStep];
+  sendTime = Date.now();
+
+  if (step.phase === 'AT Commands') {
+    let cmd = step.cmd;
+    // Dynamic APN
+    if (step.id === 'at_cgdcont') {
+      const apn = document.getElementById('pingTarget').value.includes('.') &&
+                  !document.getElementById('pingTarget').value.match(/^\d/) ? 
+                  'internet' : 'internet';
+      cmd = `AT+CGDCONT=1,"IP","internet"`;
+    }
+    await sendAT(cmd);
+  } else if (step.id === 'lcp_req') {
+    await sendLCPConfigRequest();
+  } else if (step.id === 'lcp_ack') {
+    await sendLCPConfigAck();
+  } else if (step.id === 'ipcp_req1') {
+    await sendIPCPRequest([0,0,0,0]);
+  } else if (step.id === 'ipcp_req2') {
+    if (!assignedIP) { logWarn('No assigned IP yet — send IPCP Req 1 first'); return; }
+    await sendIPCPRequest(assignedIP);
+  } else if (step.id === 'icmp_ping') {
+    if (!assignedIP) { logWarn('No IP assigned — complete IPCP first'); return; }
+    const target = document.getElementById('pingTarget').value.trim();
+    const dst = resolveTarget(target);
+    await sendPing(assignedIP, dst, pingSeq++);
+    statSent++;
+    updateStats();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  AUTO MODE
+// ═══════════════════════════════════════════════════════════════════
+function toggleAuto() {
+  if (autoMode) stopAuto();
+  else startAuto();
+}
+
+function startAuto() {
+  autoMode = true;
+  document.getElementById('autoBtn').textContent = '⏹ STOP AUTO';
+  document.getElementById('autoBtn').className = 'btn btn-red';
+  document.getElementById('autoIndicator').classList.add('visible');
+  setMode('auto');
+  scheduleNextStep();
+}
+
+function stopAuto() {
+  autoMode = false;
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+  document.getElementById('autoBtn').textContent = '⚡ AUTO';
+  document.getElementById('autoBtn').className = 'btn btn-amber';
+  document.getElementById('autoIndicator').classList.remove('visible');
+}
+
+function scheduleNextStep() {
+  if (!autoMode) return;
+  const delay = parseInt(document.getElementById('autoDelay').value);
+  autoTimer = setTimeout(async () => {
+    if (!autoMode) return;
+    if (currentStep < STEPS.length) {
+      await sendCurrentStep();
+      // Step advance handled by reply handlers for PPP steps
+      // For AT steps that don't get replies quickly, advance on ping
+      if (currentStep < STEPS.length && STEPS[currentStep].phase === 'ICMP Ping') {
+        const count = parseInt(document.getElementById('pingCount').value);
+        if (pingSeq - 1 >= count) { stopAuto(); logInfo('All pings sent. Auto mode complete.'); }
+      }
+    } else {
+      stopAuto();
+      logInfo('All steps complete!');
+    }
+  }, delay);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PACKET BUILDERS
+// ═══════════════════════════════════════════════════════════════════
+function fcs16(data) {
+  let crc = 0xFFFF;
+  for (let b of data) {
+    crc ^= b;
+    for (let i = 0; i < 8; i++) {
+      crc = (crc & 1) ? ((crc >> 1) ^ 0x8408) : (crc >> 1);
+    }
+  }
+  return (crc ^ 0xFFFF) & 0xFFFF;
+}
+
+function verifyFCS(frame) {
+  if (frame.length < 2) return false;
+  const data = frame.slice(0, frame.length - 2);
+  const fcs = fcs16(data);
+  const stored = frame[frame.length - 2] | (frame[frame.length - 1] << 8);
+  return fcs === stored;
+}
+
+function pppStuff(data) {
+  const out = [];
+  for (const b of data) {
+    if (b === 0x7E || b === 0x7D) { out.push(0x7D); out.push(b ^ 0x20); }
+    else out.push(b);
+  }
+  return new Uint8Array(out);
+}
+
+function pppDestuff(data) {
+  const out = []; let esc = false;
+  for (const b of data) {
+    if (esc) { out.push(b ^ 0x20); esc = false; }
+    else if (b === 0x7D) esc = true;
+    else out.push(b);
+  }
+  return new Uint8Array(out);
+}
+
+function buildPPPFrame(proto, payload) {
+  const inner = [0xFF, 0x03, ...proto, ...payload];
+  const fcs = fcs16(inner);
+  const stuffed = pppStuff([...inner, fcs & 0xFF, (fcs >> 8) & 0xFF]);
+  return new Uint8Array([0x7E, ...stuffed, 0x7E]);
+}
+
+function ipChecksum(data) {
+  let s = 0;
+  const arr = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const padded = arr.length % 2 ? new Uint8Array([...arr, 0]) : arr;
+  for (let i = 0; i < padded.length; i += 2) {
+    s += (padded[i] << 8) | padded[i+1];
+  }
+  while (s >> 16) s = (s & 0xFFFF) + (s >> 16);
+  return (~s) & 0xFFFF;
+}
+
+// LCP Configure-Request
+let ourMagic = null;
+async function sendLCPConfigRequest() {
+  ourMagic = [
+    Math.floor(Math.random()*256), Math.floor(Math.random()*256),
+    Math.floor(Math.random()*256), Math.floor(Math.random()*256)
+  ];
+  const options = [
+    0x05, 0x06, ...ourMagic,  // Magic-Number
+    0x07, 0x02,                // Protocol-Field-Compression
+    0x08, 0x02                 // Address-and-Control-Field-Compression
+  ];
+  const payload = [0x01, lcpIdCounter++, 0x00, options.length + 4, ...options];
+  const frame = buildPPPFrame([0xC0, 0x21], payload);
+  logTx(bytesToHex(frame), true);
+  decodePacketTx('LCP Configure-Request', frame, payload);
+  await rawWrite(frame);
+}
+
+// LCP Configure-Ack (ack modem's request)
+let modemLCPReqPayload = null;
+async function sendLCPConfigAck() {
+  // We'll echo back what the modem sent us
+  // If we don't have it, send a generic ack
+  const options = modemLCPReqPayload ? modemLCPReqPayload.slice(4) : [];
+  const id = modemLCPReqPayload ? modemLCPReqPayload[1] : 0x01;
+  const payload = [0x02, id, 0x00, options.length + 4, ...options];
+  const frame = buildPPPFrame([0xC0, 0x21], payload);
+  logTx(bytesToHex(frame), true);
+  decodePacketTx('LCP Configure-Ack', frame, payload);
+  await rawWrite(frame);
+}
+
+// LCP Echo-Reply
+async function sendLCPEchoReply(reqPayload) {
+  const id = reqPayload[1];
+  const magic = ourMagic ? ourMagic : [0,0,0,0];
+  const payload = [0x0A, id, 0x00, 0x08, ...magic];
+  const frame = buildPPPFrame([0xC0, 0x21], payload);
+  await rawWrite(frame);
+  logInfo('Sent LCP Echo-Reply (keep-alive)');
+}
+
+// IPCP Configure-Request
+async function sendIPCPRequest(ip) {
+  const options = [
+    0x03, 0x06, ...ip,           // IP-Address
+    0x81, 0x06, 0,0,0,0,         // Primary DNS
+    0x83, 0x06, 0,0,0,0          // Secondary DNS
+  ];
+  const payload = [0x01, lcpIdCounter++, 0x00, options.length + 4, ...options];
+  const frame = buildPPPFrame([0x80, 0x21], payload);
+  logTx(bytesToHex(frame), true);
+  decodePacketTx('IPCP Configure-Request', frame, payload, ip);
+  await rawWrite(frame);
+}
+
+// ICMP Ping
+async function sendPing(srcIP, dstIP, seq) {
+  const icmpId = 1;
+  const pad = new TextEncoder().encode('abcdefghijklmnopqrstuvwxyz123456');
+  const ttl = parseInt(document.getElementById('pingTTL').value) || 64;
+
+  // ICMP header with zero checksum
+  const icmpHdr0 = new Uint8Array([8,0,0,0,(icmpId>>8)&0xFF,icmpId&0xFF,(seq>>8)&0xFF,seq&0xFF]);
+  const icmpData = new Uint8Array([...icmpHdr0, ...pad]);
+  const icmpCk = ipChecksum(icmpData);
+  const icmpHdr = new Uint8Array([8,0,(icmpCk>>8)&0xFF,icmpCk&0xFF,(icmpId>>8)&0xFF,icmpId&0xFF,(seq>>8)&0xFF,seq&0xFF]);
+  const icmp = new Uint8Array([...icmpHdr, ...pad]);
+
+  const totalLen = 20 + icmp.length;
+  const ipId = seq & 0xFFFF;
+
+  // IP header with zero checksum
+  const ipHdr0 = new Uint8Array([
+    0x45, 0x00, (totalLen>>8)&0xFF, totalLen&0xFF,
+    (ipId>>8)&0xFF, ipId&0xFF, 0x00, 0x00,
+    ttl, 0x01, 0x00, 0x00,
+    ...srcIP, ...dstIP
+  ]);
+  const ipCk = ipChecksum(ipHdr0);
+  const ipHdr = new Uint8Array([
+    0x45, 0x00, (totalLen>>8)&0xFF, totalLen&0xFF,
+    (ipId>>8)&0xFF, ipId&0xFF, 0x00, 0x00,
+    ttl, 0x01, (ipCk>>8)&0xFF, ipCk&0xFF,
+    ...srcIP, ...dstIP
+  ]);
+
+  const frame = buildPPPFrame([0x00, 0x21], new Uint8Array([...ipHdr, ...icmp]));
+  logTx(bytesToHex(frame), true);
+  decodePacketTx('ICMP Echo-Request', frame, [...ipHdr, ...icmp], {srcIP, dstIP, seq, icmpId});
+  await rawWrite(frame);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function resolveTarget(target) {
+  // Parse dotted IP or use fallback
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(target)) {
+    return target.split('.').map(Number);
+  }
+  // Common hosts
+  const map = {
+    'google.com': [8,8,8,8],
+    '8.8.8.8':    [8,8,8,8],
+    '8.8.4.4':    [8,8,4,4],
+    'cloudflare.com': [1,1,1,1],
+    '1.1.1.1':    [1,1,1,1],
+  };
+  return map[target.toLowerCase()] || [8,8,8,8];
+}
+
+function extractLCPMagic(options) {
+  for (let i = 0; i < options.length; ) {
+    const type = options[i], len = options[i+1];
+    if (type === 0x05 && len === 6) return Array.from(options.slice(i+2, i+6));
+    i += len || 1;
+  }
+  return null;
+}
+
+function extractIPCPAddress(options) {
+  for (let i = 0; i < options.length; ) {
+    const type = options[i], len = options[i+1];
+    if (type === 0x03 && len === 6) return Array.from(options.slice(i+2, i+6));
+    i += len || 1;
+  }
+  return null;
+}
+
+async function sendAT(cmd) {
+  const data = new TextEncoder().encode(cmd + '\r\n');
+  logTx(cmd, false);
+  decodePacketTx('AT Command', null, null, cmd);
+  await rawWrite(data);
+}
+
+async function rawWrite(data) {
+  if (!writer) return;
+  try { await writer.write(data); } catch(e) { logError('Write error: ' + e.message); }
+}
+
+async function sendManual() {
+  const inp = document.getElementById('manualInput').value.trim();
+  if (!inp || !connected) return;
+  document.getElementById('manualInput').value = '';
+  const isHex = /^([0-9a-fA-F]{2}\s*)+$/.test(inp);
+  if (isHex) {
+    const bytes = inp.replace(/\s/g,'').match(/.{2}/g).map(h=>parseInt(h,16));
+    logTx(inp, true);
+    await rawWrite(new Uint8Array(bytes));
+  } else {
+    await sendAT(inp);
+  }
+}
+
+function handleManualKey(e) { if (e.key === 'Enter') sendManual(); }
+
+function toggleHexView() { hexView = document.getElementById('hexView').checked; }
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach((t,i) => {
+    t.classList.toggle('active', (i===0&&m==='manual')||(i===1&&m==='auto'));
+  });
+}
+
+function bytesToHex(arr) {
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+}
+
+function updateStats() {
+  document.getElementById('statSent').textContent = statSent;
+  document.getElementById('statRecv').textContent = statRecv;
+  const avgRTT = rtts.length ? Math.round(rtts.reduce((a,b)=>a+b,0)/rtts.length) : null;
+  document.getElementById('statRTT').textContent = avgRTT ? avgRTT+'ms' : '—';
+}
+
+function setStatus(s) {
+  const pill = document.getElementById('statusPill');
+  pill.className = 'status-pill ' + s;
+  const texts = { disconnected:'Disconnected', connected:'Connected — AT Mode', ppp:'PPP Mode Active' };
+  document.getElementById('statusText').textContent = texts[s] || s;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  NEXT PACKET DISPLAY
+// ═══════════════════════════════════════════════════════════════════
+function updateNextPacket() {
+  const el = document.getElementById('nextPacketDisplay');
+  if (!connected) {
+    el.innerHTML = '<span style="color:var(--text3);font-size:11px">— connect serial port first —</span>';
+    return;
+  }
+  if (currentStep >= STEPS.length) {
+    el.innerHTML = '<span style="color:var(--green);font-size:11px">✓ All steps complete</span>';
+    return;
+  }
+  const step = STEPS[currentStep];
+  el.innerHTML = renderNextPacket(step);
+}
+
+function renderNextPacket(step) {
+  if (step.phase === 'AT Commands') {
+    return `<span class="byte-group bg-header">${step.cmd}</span> <span style="color:var(--text3);font-size:10px">\\r\\n</span>`;
+  }
+  if (step.id === 'lcp_req') {
+    const m = ourMagic || [0xAB,0xCD,0xEF,0x01];
+    return [
+      span('7E','bg-flag','PPP Start Flag'),
+      span('FF','bg-header','PPP Address'),
+      span('03','bg-header','PPP Control'),
+      span('C0 21','bg-proto','Protocol: LCP'),
+      span('01','bg-lcp','Code: Conf-Req'),
+      span('01','bg-lcp','Identifier'),
+      span('00 0A','bg-lcp','Length: 10'),
+      span('05 06','bg-lcp','Option: Magic-Num'),
+      span(m.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' '),'bg-data','Magic Number'),
+      span('07 02','bg-lcp','Option: PFC'),
+      span('08 02','bg-lcp','Option: ACFC'),
+      span('CS CS','bg-fcs','FCS-16'),
+      span('7E','bg-flag','PPP End Flag'),
+    ].join(' ');
+  }
+  if (step.id === 'lcp_ack') {
+    return [
+      span('7E','bg-flag'), span('FF 03','bg-header'), span('C0 21','bg-proto','LCP'),
+      span('02','bg-lcp','Code: Conf-Ack'), span('id','bg-lcp','Modem ID'),
+      span('len','bg-lcp','Length'), span('...options...','bg-data','Echo modem options'),
+      span('CS CS','bg-fcs'), span('7E','bg-flag'),
+    ].join(' ');
+  }
+  if (step.id === 'ipcp_req1') {
+    return [
+      span('7E','bg-flag'), span('FF 03','bg-header'), span('80 21','bg-proto','IPCP'),
+      span('01','bg-lcp','Conf-Req'), span('id len','bg-lcp'),
+      span('03 06','bg-lcp','IP-Addr opt'),
+      span('00 00 00 00','bg-data','IP: 0.0.0.0 (request)'),
+      span('81 06','bg-lcp','Pri-DNS'), span('00 00 00 00','bg-data'),
+      span('83 06','bg-lcp','Sec-DNS'), span('00 00 00 00','bg-data'),
+      span('CS CS','bg-fcs'), span('7E','bg-flag'),
+    ].join(' ');
+  }
+  if (step.id === 'ipcp_req2') {
+    const ip = assignedIP ? assignedIP.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ') : '?? ?? ?? ??';
+    return [
+      span('7E','bg-flag'), span('FF 03','bg-header'), span('80 21','bg-proto','IPCP'),
+      span('01','bg-lcp','Conf-Req'),
+      span('03 06','bg-lcp','IP-Addr'),
+      span(ip,'bg-data','Assigned IP'),
+      span('81 06 ...','bg-lcp','DNS options'),
+      span('CS CS','bg-fcs'), span('7E','bg-flag'),
+    ].join(' ');
+  }
+  if (step.id === 'icmp_ping') {
+    const src = assignedIP ? assignedIP.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ') : '?? ?? ?? ??';
+    const tgt = resolveTarget(document.getElementById('pingTarget').value);
+    const dst = tgt.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+    return [
+      span('7E','bg-flag'), span('FF 03','bg-header'), span('00 21','bg-proto','IPv4'),
+      span('45 00','bg-data','Ver+IHL+DSCP'),
+      span('00 3C','bg-data','Len:60'),
+      span('40 01','bg-data','TTL:64 ICMP'),
+      span('cs cs','bg-fcs','IP Checksum'),
+      span(src,'bg-lcp','Src IP'),
+      span(dst,'bg-data','Dst IP'),
+      span('08 00','bg-lcp','ICMP Echo-Req'),
+      span('ck ck','bg-fcs','ICMP Checksum'),
+      span('00 01','bg-data',`Seq:${pingSeq}`),
+      span('data...','bg-data','32B payload'),
+      span('CS CS','bg-fcs'), span('7E','bg-flag'),
+    ].join(' ');
+  }
+  return `<span style="color:var(--text3)">${step.cmd}</span>`;
+}
+
+function span(hex, cls, title) {
+  return `<span class="byte-group ${cls}"${title?` title="${title}"`:''}>${hex}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LOGGING
+// ═══════════════════════════════════════════════════════════════════
+function ts() { return new Date().toISOString().slice(11,23); }
+
+function logLine(dir, content, dirClass) {
+  const area = document.getElementById('terminalArea');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-ts">${ts()}</span><span class="log-dir ${dirClass}">${dir}</span><span class="log-content">${content}</span>`;
+  area.appendChild(line);
+  area.scrollTop = area.scrollHeight;
+}
+
+function logTx(text, isHex) {
+  const display = isHex ? `<span class="hex">${text}</span>` : `<b>${text}</b>`;
+  logLine('TX', display, 'tx');
+}
+
+function logRx(text, isHex) {
+  const display = isHex ? `<span class="hex">${text}</span>` : text;
+  logLine('RX', display, 'rx');
+}
+
+function logInfo(msg) { logLine('INFO', msg, 'info'); }
+function logWarn(msg) { logLine('WARN', msg, 'warn'); }
+function logError(msg) { logLine('ERR', msg, 'err'); }
+
+function clearTerminal() { document.getElementById('terminalArea').innerHTML = ''; }
+function clearDecoder()  {
+  document.getElementById('decoderContent').innerHTML =
+    '<div style="text-align:center;color:var(--text3);padding:30px 10px;font-size:11px">Decoder cleared</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DECODER CARDS
+// ═══════════════════════════════════════════════════════════════════
+function addDecodeCard(title, dir, fields, meaning) {
+  const panel = document.getElementById('decoderContent');
+  // Remove placeholder
+  const ph = panel.querySelector('div[style*="text-align:center"]');
+  if (ph) ph.remove();
+
+  const card = document.createElement('div');
+  card.className = 'decode-card';
+  card.innerHTML = `
+    <div class="decode-card-header">
+      <span class="decode-card-title ${dir}">${title}</span>
+      <span class="decode-ts">${ts()}</span>
+    </div>
+    <div class="decode-fields">
+      ${fields.map(f=>`<div class="decode-field"><span class="decode-field-name">${f.name}</span><span class="decode-field-val">${f.val}</span></div>`).join('')}
+    </div>
+    ${meaning ? `<div class="decode-meaning">${meaning}</div>` : ''}
+  `;
+  panel.appendChild(card);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function decodeATResponse(line, rtt) {
+  const step = STEPS[currentStep];
+  if (!step) return;
+
+  if (line.match(/^\+CREG:/)) {
+    const m = line.match(/\+CREG:\s*(\d+),(\d+)/);
+    const statMap = {'0':'Not registered','1':'Registered (home)','2':'Searching','3':'Denied','5':'Registered (roaming)'};
+    addDecodeCard('AT Reply: +CREG', 'rx', [
+      {name:'Raw', val:`<span class="highlight">${line}</span>`},
+      {name:'Format', val: m?m[1]:'?'},
+      {name:'Status', val: m ? `<span class="${m[2]==='1'||m[2]==='5'?'good':'warn'}">${statMap[m[2]]||m[2]}</span>` : '?'},
+    ], `Network registration status. Value 1 or 5 means the modem is registered and can make data calls.`);
+  } else if (line.match(/^\+CSQ:/)) {
+    const m = line.match(/\+CSQ:\s*(\d+),(\d+)/);
+    const rssi = m?parseInt(m[1]):0;
+    const dbm = rssi === 99 ? 'Unknown' : `${-113 + rssi*2} dBm`;
+    addDecodeCard('AT Reply: +CSQ', 'rx', [
+      {name:'Raw', val:`<span class="highlight">${line}</span>`},
+      {name:'RSSI', val: `<span class="${rssi>15?'good':rssi>10?'warn':'err'}">${m?m[1]:'?'} → ${dbm}</span>`},
+      {name:'BER', val: m?m[2]:'?'},
+    ], `Signal strength. RSSI 10–15 = weak, 15–20 = OK, 20+ = good. ${rssi>=20?'✓ Signal is good.':'⚠ Consider improving antenna placement.'}`);
+  } else if (line === 'CONNECT' || line.startsWith('CONNECT ')) {
+    addDecodeCard('CONNECT — PPP Mode', 'rx', [
+      {name:'Response', val:`<span class="good">${line}</span>`},
+      {name:'Mode', val:'Binary PPP framing active'},
+      {name:'Next', val:'Send LCP Configure-Request'},
+    ], `The modem has entered PPP data mode. All subsequent communication must use binary PPP frames. AT commands are no longer accepted.`);
+  } else if (line === 'OK') {
+    addDecodeCard('AT Reply: OK', 'rx', [
+      {name:'Response', val:`<span class="good">OK</span>`},
+      {name:'Step', val: step ? step.label : '—'},
+    ], 'Command accepted. Proceed to next step.');
+  } else if (line === 'ERROR' || line.startsWith('+CME')) {
+    addDecodeCard('AT Reply: ERROR', 'rx', [
+      {name:'Response', val:`<span class="err">${line}</span>`},
+      {name:'Likely cause', val:'Wrong APN, SIM issue, or command syntax'},
+    ], 'Command failed. Check APN settings and SIM status.');
+  } else if (/^\d{15}$/.test(line)) {
+    addDecodeCard('AT Reply: IMSI', 'rx', [
+      {name:'IMSI', val:`<span class="highlight">${line}</span>`},
+      {name:'Length', val:`${line.length} digits`},
+      {name:'MCC', val:line.slice(0,3)},
+      {name:'MNC', val:line.slice(3,5)},
+    ], `International Mobile Subscriber Identity. MCC=${line.slice(0,3)} (country), MNC=${line.slice(3,5)} (network). SIM is present and readable.`);
+  }
+}
+
+function decodePacketTx(title, frame, payload, extra) {
+  if (title === 'AT Command') {
+    addDecodeCard(`TX: ${extra}`, 'tx', [
+      {name:'Type', val:'AT Command (ASCII text)'},
+      {name:'Command', val:`<span class="highlight">${extra}</span>`},
+      {name:'Encoding', val:'ASCII + \\r\\n'},
+    ], `Sending AT command to modem. Commands must end with CR+LF. Wait for reply before sending the next command.`);
+    return;
+  }
+  if (!frame) return;
+
+  if (title === 'LCP Configure-Request') {
+    const magic = ourMagic ? ourMagic.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ') : '??';
+    addDecodeCard('TX: LCP Configure-Request', 'tx', [
+      {name:'PPP Protocol', val:'<span class="highlight">0xC021</span> (LCP)'},
+      {name:'LCP Code', val:'<span class="highlight">0x01</span> Configure-Request'},
+      {name:'Options', val:'Magic-Number, PFC, ACFC'},
+      {name:'Magic Number', val:`<span class="highlight">${magic}</span>`},
+      {name:'Frame', val:`<span class="hex" style="font-size:10px">${bytesToHex(frame).slice(0,60)}...</span>`},
+    ], `Proposing link parameters to the modem. The Magic Number (${magic}) detects loopback conditions. PFC and ACFC are compression hints that reduce header overhead.`);
+  } else if (title === 'LCP Configure-Ack') {
+    addDecodeCard('TX: LCP Configure-Ack', 'tx', [
+      {name:'PPP Protocol', val:'<span class="highlight">0xC021</span> (LCP)'},
+      {name:'LCP Code', val:'<span class="highlight">0x02</span> Configure-Ack'},
+      {name:'Action', val:'Echoing modem\'s options back'},
+    ], `Acknowledging all of the modem's LCP options. Sending Configure-Ack means we accept every option exactly as proposed. LCP negotiation is now complete on our side.`);
+  } else if (title === 'IPCP Configure-Request') {
+    const ip = extra ? extra.join('.') : '0.0.0.0';
+    addDecodeCard('TX: IPCP Configure-Request', 'tx', [
+      {name:'PPP Protocol', val:'<span class="highlight">0x8021</span> (IPCP)'},
+      {name:'LCP Code', val:'<span class="highlight">0x01</span> Configure-Request'},
+      {name:'IP-Address', val:`<span class="${ip==='0.0.0.0'?'warn':'good'}">${ip}</span>`},
+      {name:'Primary DNS', val:'0.0.0.0 (requesting)'},
+      {name:'Secondary DNS', val:'0.0.0.0 (requesting)'},
+    ], ip === '0.0.0.0'
+      ? `First IPCP request. Sending 0.0.0.0 tells the modem to assign us an IP address. The modem will reply with Configure-Nak containing the real addresses.`
+      : `Second IPCP request with the IP assigned by modem: ${ip}. Modem should reply with Configure-Ack confirming the address.`);
+  } else if (title === 'ICMP Echo-Request') {
+    const { srcIP, dstIP, seq, icmpId } = extra;
+    addDecodeCard('TX: ICMP Echo-Request (Ping)', 'tx', [
+      {name:'PPP Protocol', val:'<span class="highlight">0x0021</span> (IPv4)'},
+      {name:'IPv4 Proto', val:'<span class="highlight">0x01</span> (ICMP)'},
+      {name:'Source IP', val:`<span class="good">${srcIP.join('.')}</span>`},
+      {name:'Dest IP', val:`<span class="highlight">${dstIP.join('.')}</span>`},
+      {name:'TTL', val:document.getElementById('pingTTL').value},
+      {name:'ICMP Type', val:'<span class="highlight">0x08</span> Echo-Request'},
+      {name:'ICMP Code', val:'0x00'},
+      {name:'Identifier', val:`0x${icmpId.toString(16).padStart(4,'0')}`},
+      {name:'Sequence', val:`${seq}`},
+      {name:'Payload', val:'32 bytes (abcdefghijklmnopqrstuvwxyz123456)'},
+    ], `Sending ICMP Echo-Request (ping) to ${dstIP.join('.')} from ${srcIP.join('.')}. The target should reply with ICMP Type 0 (Echo-Reply). Sequence number ${seq} lets us match request/reply pairs and calculate round-trip time.`);
+  }
+}
+
+function decodePPPFrame(frame, rtt) {
+  // frame = [FF, 03, proto_hi, proto_lo, ...payload]
+  if (frame.length < 5) return;
+  const proto = (frame[2] << 8) | frame[3];
+  const payload = frame.slice(4);
+
+  if (proto === 0xC021) decodeLCP(payload, rtt);
+  else if (proto === 0x8021) decodeIPCP(payload, rtt);
+  else if (proto === 0x0021) decodeIPv4(payload, rtt);
+  else if (proto === 0xC023) decodePAP(payload, rtt);
+}
+
+function decodeLCP(p, rtt) {
+  const codes = {1:'Configure-Request',2:'Configure-Ack',3:'Configure-Nak',4:'Configure-Reject',5:'Terminate-Req',6:'Terminate-Ack',9:'Echo-Request',10:'Echo-Reply'};
+  const code = p[0], id = p[1], len = (p[2]<<8)|p[3];
+  const codeName = codes[code] || `Unknown(${code})`;
+  const fields = [
+    {name:'Protocol', val:'<span class="highlight">0xC021</span> (LCP)'},
+    {name:'Code', val:`<span class="highlight">0x${code.toString(16).padStart(2,'0').toUpperCase()}</span> ${codeName}`},
+    {name:'Identifier', val:`0x${id.toString(16).padStart(2,'0').toUpperCase()}`},
+    {name:'Length', val:`${len} bytes`},
+  ];
+
+  // Parse options
+  if (code === 1 || code === 2 || code === 3) {
+    modemLCPReqPayload = code === 1 ? Array.from(p) : modemLCPReqPayload;
+    const optTypes = {1:'MRU',3:'Auth-Protocol',4:'Quality-Proto',5:'Magic-Number',7:'PFC',8:'ACFC'};
+    let i = 4;
+    while (i < p.length) {
+      const otype = p[i], olen = p[i+1];
+      if (!olen) break;
+      const oval = Array.from(p.slice(i+2, i+olen)).map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+      fields.push({name:`  Opt:${optTypes[otype]||otype}`, val:`<span class="highlight">${oval}</span> (${olen-2} bytes)`});
+      i += olen;
+    }
+  }
+
+  const meanings = {
+    1:`Modem sent LCP Configure-Request proposing its link options. Parse the options and send Configure-Ack to accept them.`,
+    2:`LCP Configure-Ack received. The modem has accepted our options. LCP negotiation is complete — proceed to IPCP.`,
+    3:`LCP Configure-Nak — modem rejected some options. Update your request with the suggested values and retry.`,
+    9:`LCP Echo-Request (keep-alive) from modem. Must respond with Echo-Reply or the modem will drop the link.`,
+    10:`LCP Echo-Reply received. Link keep-alive confirmed.`,
+  };
+  addDecodeCard(`RX: LCP ${codeName}`, 'rx', fields, meanings[code] || `LCP control message code ${code}.`);
+}
+
+function decodeIPCP(p, rtt) {
+  const codes = {1:'Configure-Request',2:'Configure-Ack',3:'Configure-Nak',4:'Configure-Reject'};
+  const code = p[0], id = p[1];
+  const codeName = codes[code] || code;
+  const fields = [
+    {name:'Protocol', val:'<span class="highlight">0x8021</span> (IPCP)'},
+    {name:'Code', val:`<span class="highlight">0x${code.toString(16).padStart(2,'0').toUpperCase()}</span> ${codeName}`},
+    {name:'Identifier', val:`0x${id.toString(16).padStart(2,'0').toUpperCase()}`},
+  ];
+
+  const optNames = {0x03:'IP-Address', 0x81:'Primary-DNS', 0x82:'Primary-NBNS', 0x83:'Secondary-DNS'};
+  let i = 4;
+  while (i < p.length) {
+    const otype = p[i], olen = p[i+1];
+    if (!olen || i+olen > p.length) break;
+    if (olen === 6) {
+      const ip = `${p[i+2]}.${p[i+3]}.${p[i+4]}.${p[i+5]}`;
+      fields.push({name: optNames[otype]||`Opt(${otype})`, val:`<span class="${code===3?'good':'highlight'}">${ip}</span>`});
+    }
+    i += olen;
+  }
+
+  const meanings = {
+    3:`IPCP Configure-Nak — the modem is telling us the IP/DNS addresses to use. Extract these values and send a new Configure-Request with them.`,
+    2:`IPCP Configure-Ack — modem confirms our IP address. The PPP tunnel is now fully operational. Ready to send IP packets!`,
+    1:`IPCP Configure-Request from modem — modem proposing IPCP options. Send an Ack.`,
+  };
+  addDecodeCard(`RX: IPCP ${codeName}`, 'rx', fields, meanings[code]||`IPCP code ${code}`);
+}
+
+function decodeIPv4(payload, rtt) {
+  if (payload.length < 20) return;
+  const ihl = (payload[0] & 0x0F) * 4;
+  const totalLen = (payload[2]<<8)|payload[3];
+  const ttl = payload[8];
+  const proto = payload[9];
+  const srcIP = `${payload[12]}.${payload[13]}.${payload[14]}.${payload[15]}`;
+  const dstIP = `${payload[16]}.${payload[17]}.${payload[18]}.${payload[19]}`;
+
+  const fields = [
+    {name:'Protocol', val:'<span class="highlight">0x0021</span> (IPv4)'},
+    {name:'IP Version', val:'4'},
+    {name:'Header Len', val:`${ihl} bytes`},
+    {name:'Total Length', val:`${totalLen} bytes`},
+    {name:'TTL', val:`${ttl}`},
+    {name:'IP Protocol', val:`0x${proto.toString(16).padStart(2,'0').toUpperCase()} (${proto===1?'ICMP':proto===6?'TCP':proto===17?'UDP':proto})`},
+    {name:'Source IP', val:`<span class="highlight">${srcIP}</span>`},
+    {name:'Dest IP', val:`<span class="highlight">${dstIP}</span>`},
+  ];
+
+  if (proto === 1 && payload.length >= ihl + 8) {
+    const icmp = payload.slice(ihl);
+    const icmpType = icmp[0], icmpCode = icmp[1];
+    const icmpId = (icmp[4]<<8)|icmp[5];
+    const seq = (icmp[6]<<8)|icmp[7];
+    const icmpTypes = {0:'Echo-Reply',3:'Dest Unreachable',8:'Echo-Request',11:'Time Exceeded'};
+
+    fields.push({name:'ICMP Type', val:`<span class="${icmpType===0?'good':icmpType===3||icmpType===11?'err':'highlight'}">0x${icmpType.toString(16).padStart(2,'0').toUpperCase()} — ${icmpTypes[icmpType]||icmpType}</span>`});
+    fields.push({name:'ICMP Code', val:`${icmpCode}`});
+    fields.push({name:'Identifier', val:`0x${icmpId.toString(16).padStart(4,'0')}`});
+    fields.push({name:'Sequence', val:`${seq}`});
+    if (rtt) fields.push({name:'RTT', val:`<span class="good">${rtt} ms</span>`});
+
+    const meanings = {
+      0:`ICMP Echo-Reply from ${srcIP}. Ping successful! RTT=${rtt}ms, TTL=${ttl}, Seq=${seq}. Google's DNS server responded to our ping request.`,
+      3:`Destination Unreachable from ${srcIP}. The packet could not reach its destination. Check routing and APN.`,
+      11:`Time Exceeded — TTL reached zero before reaching the destination. Intermediate router discarded the packet.`,
+    };
+    addDecodeCard(`RX: ICMP ${icmpTypes[icmpType]||'Type'+icmpType}`, 'rx', fields, meanings[icmpType]||`ICMP reply type ${icmpType}`);
+  } else {
+    addDecodeCard('RX: IPv4 Packet', 'rx', fields, `IPv4 packet from ${srcIP}. Protocol: ${proto}.`);
+  }
+}
+
+function decodePAP(p, rtt) {
+  const codes = {1:'Authenticate-Req',2:'Authenticate-Ack',3:'Authenticate-Nak'};
+  const code = p[0];
+  addDecodeCard(`RX: PAP ${codes[code]||code}`, 'rx', [
+    {name:'Protocol', val:'<span class="highlight">0xC023</span> (PAP)'},
+    {name:'Code', val:`<span class="${code===2?'good':code===3?'err':'highlight'}">${codes[code]||code}</span>`},
+  ], code===2?`PAP authentication accepted. Proceed to IPCP.`:code===3?`PAP authentication rejected. Check credentials.`:`PAP message received.`);
+}
+
+// Check Web Serial on load
+if (!('serial' in navigator)) {
+  window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('noSerialOverlay').style.display = 'flex';
+  });
+}
+</script>
+</body>
+</html>
